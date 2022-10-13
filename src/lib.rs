@@ -1,5 +1,1 @@
-mod chat;
-
-pub fn run() {
-    chat::run();
-}
+pub mod chat;
