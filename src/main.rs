@@ -2,18 +2,15 @@ use std::panic;
 use std::{io::stdout, io::Result, thread};
 
 use crossterm::event::KeyCode;
+use dgg::chat::event::Event;
 use dgg::chat::user::{User, UserList};
-use dgg::{
-    chat::{dgg::DGG, event::Action, message::Message},
-    ui,
-};
+use dgg::chat::{dgg::DGG, event::Action, message::Message};
+use dgg::ui::emotes::EmoteList;
+use dgg::ui::render::{close, draw, get_key, init};
 use tui::{backend::CrosstermBackend, Terminal};
 
 fn main() -> Result<()> {
-    #[cfg(not(debug_assertions))]
-    panic::set_hook(Box::new(|_| {
-        println!("");
-    }));
+    custom_panic();
 
     let (mut dgg, dgg_sender) = DGG::new(99);
     let dgg_state = dgg.get_state_ref();
@@ -21,19 +18,21 @@ fn main() -> Result<()> {
 
     let _ = thread::spawn(move || dgg.work());
 
-    ui::init()?;
+    init()?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).unwrap();
+    let emotes = EmoteList::new();
 
     loop {
-        match terminal.draw(|f| ui::draw(f, &dgg_state).unwrap()) {
+        match terminal.draw(|f| draw(f, &dgg_state, &emotes).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
         }
 
-        if let Ok(val) = ui::get_key() {
+        if let Ok(val) = get_key() {
             match val {
                 KeyCode::Char('q') => break,
+                KeyCode::F(1) => dgg_sender.send("".to_string()).unwrap(),
                 _ => (),
             }
         }
@@ -79,6 +78,19 @@ fn main() -> Result<()> {
     }
 
     // let _ = dgg_handle.join();
-    ui::close()?;
+    close()?;
     Ok(())
+}
+
+fn custom_panic() {
+    #[cfg(not(debug_assertions))]
+    panic::set_hook(Box::new(|_| {
+        println!("");
+    }));
+
+    #[cfg(debug_assertions)]
+    panic::set_hook(Box::new(|panic_info| {
+        let _ = close();
+        println!("{}", panic_info);
+    }))
 }

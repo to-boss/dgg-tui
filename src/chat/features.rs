@@ -1,6 +1,8 @@
+use core::panic;
 use std::str::FromStr;
 
-enum Feature {
+pub enum Feature {
+    White,
     Sub,
     Tier1,
     Tier2,
@@ -16,9 +18,16 @@ enum Feature {
     Contributor,
     Music,
     Broadcaster,
-    Birtday,
+    Birthday,
     Admin,
     Sc2,
+    Dnd,
+    Lawyer,
+    EmoteContributor,
+    YoutubeContributor,
+    Twitch,
+    Eve,
+    Gym,
 }
 
 impl FromStr for Feature {
@@ -37,15 +46,30 @@ impl FromStr for Feature {
             "flair4" => Ok(Feature::Trusted),
             "flair5" => Ok(Feature::Contributor),
             "flair6" => Ok(Feature::Music),
-            //"flair7" => Ok(Feature::Eve), is this even implemented in dgg?
+            "flair7" => Ok(Feature::Eve),
             "flair8" => Ok(Feature::Tier4),
-            //"flair9" => Ok(Feature::Twitch),
+            "flair9" => Ok(Feature::Twitch),
             "flair10" => Ok(Feature::Sc2),
             "flair11" => Ok(Feature::Bot2),
             "flair12" => Ok(Feature::Broadcaster),
             "flair13" => Ok(Feature::Tier1),
-            "flair15" => Ok(Feature::Birtday),
-            _ => Err(()),
+            "flair14" => Ok(Feature::White), // not sure
+            "flair15" => Ok(Feature::Birthday),
+            "flair16" => Ok(Feature::EmoteContributor),
+            "flair17" => Ok(Feature::White), // not sure
+            "flair18" => Ok(Feature::White), // not sure
+            "flair19" => Ok(Feature::White), // not sure
+            "flair20" => Ok(Feature::White), // not sure
+            "flair21" => Ok(Feature::White), // not sure
+            "flair22" => Ok(Feature::White), // not sure
+            "flair23" => Ok(Feature::White), // not sure
+            "flair24" => Ok(Feature::Dnd),
+            "flair25" => Ok(Feature::YoutubeContributor),
+            "flair26" => Ok(Feature::Dnd),
+            "flair27" => Ok(Feature::White), // not sure
+            "flair28" => Ok(Feature::Lawyer),
+            "flair29" => Ok(Feature::Gym),
+            _ => panic!("ParserError: {}", s),
         }
     }
 }

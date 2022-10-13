@@ -10,28 +10,30 @@ pub struct State {
     pub ul: UserList,
     pub deque: VecDeque<Event>,
     pub max_messages: usize,
-    pub inc_messages: Vec<Message>,
+    pub messages: Vec<Message>,
+    pub users_window: bool,
 }
 
 impl State {
     pub fn new(max_messages: usize) -> State {
         let ul = UserList::new();
         let deque = VecDeque::new();
-        let inc_messages = Vec::new();
+        let messages = Vec::new();
 
         State {
             ul,
             deque,
             max_messages,
-            inc_messages,
+            messages,
+            users_window: false,
         }
     }
 
     pub fn add_message(&mut self, msg: Message) {
-        if self.inc_messages.len() >= self.max_messages {
-            self.inc_messages.drain(0..1);
+        if self.messages.len() >= self.max_messages {
+            self.messages.drain(0..1);
         }
-        self.inc_messages.push(msg);
+        self.messages.push(msg);
     }
 
     pub fn push_new_event(&mut self, action: &str, body: String) {

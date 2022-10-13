@@ -3,8 +3,8 @@ use std::io::Error;
 use serde_json::Value;
 
 pub struct User {
-    name: String,
-    features: Vec<String>,
+    pub name: String,
+    pub features: Vec<String>,
 }
 
 impl User {

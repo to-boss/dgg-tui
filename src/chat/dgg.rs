@@ -9,7 +9,7 @@ use std::{
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url;
 
-use super::state::State;
+use super::{event::Event, state::State};
 
 pub struct DGG {
     pub ws: WebSocket<MaybeTlsStream<TcpStream>>,
@@ -60,12 +60,12 @@ impl DGG {
             // Sending to WebSocket
             // non blocking
             match self.receiver.try_recv() {
-                Ok(msg_to_send) => {
-                    self.state
-                        .lock()
-                        .unwrap()
-                        .push_new_event("SendMsg", msg_to_send);
-                }
+                Ok(val) => match val {
+                    _ => {
+                        let mut state = self.state.lock().unwrap();
+                        state.users_window = !state.users_window;
+                    }
+                },
                 Err(TryRecvError::Empty) => (),
                 Err(TryRecvError::Disconnected) => break,
             }
