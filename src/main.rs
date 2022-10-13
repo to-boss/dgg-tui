@@ -30,9 +30,10 @@ fn main() -> Result<()> {
             Err(_) => break,
         }
 
-        if let Ok(val) = ui::get_keypresses() {
-            if val {
-                break;
+        if let Ok(val) = ui::get_key() {
+            match val {
+                KeyCode::Char('q') => break,
+                _ => (),
             }
         }
 
