@@ -12,6 +12,8 @@ pub struct State {
     pub max_messages: usize,
     pub messages: Vec<Message>,
     pub users_window: bool,
+    pub send_message: bool,
+    pub message_to_send: String,
 }
 
 impl State {
@@ -26,6 +28,8 @@ impl State {
             max_messages,
             messages,
             users_window: false,
+            send_message: false,
+            message_to_send: String::from(""),
         }
     }
 

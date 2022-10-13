@@ -17,8 +17,13 @@ use tui::{
     widgets::{Block, Borders, List, ListItem},
     Frame,
 };
+use tui_textarea::TextArea;
 
-use crate::chat::{features::Feature, state::State};
+use crate::chat::{
+    event::{Action, Event},
+    features::Feature,
+    state::State,
+};
 
 use super::{
     emotes::EmoteList,
@@ -56,6 +61,7 @@ pub fn draw<B: Backend>(
     f: &mut Frame<B>,
     app: &Arc<Mutex<State>>,
     emotes: &EmoteList,
+    text_area: &mut TextArea,
 ) -> Result<()> {
     let mut app = app.lock().unwrap();
 
@@ -68,11 +74,14 @@ pub fn draw<B: Backend>(
     render_chat(f, chunks[0], &app, &emotes);
 
     // render input window
-    let input_window = Block::default()
-        .style(Style::default().bg(Color::Black))
-        .borders(Borders::ALL)
-        .title("Send");
-    f.render_widget(input_window, chunks[1]);
+
+    if app.send_message {
+        app.push_event(Event::new(
+            Action::SendMsg,
+            text_area.lines()[0].to_string(),
+        ));
+    }
+    f.render_widget(text_area.widget(), chunks[1]);
 
     // render member list window
     if app.users_window {
@@ -179,7 +188,7 @@ fn get_chunks(size: &Rect, users_window: &bool) -> Vec<Rect> {
     if *users_window == false {
         Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(85), Constraint::Percentage(15)].as_ref())
+            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
             .margin(0)
             .split(*size)
     } else {
@@ -189,7 +198,7 @@ fn get_chunks(size: &Rect, users_window: &bool) -> Vec<Rect> {
             .split(*size);
         let left = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(85), Constraint::Percentage(15)].as_ref())
+            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
             .margin(0)
             .split(chunks[0]);
         vec![left[0], left[1], chunks[1]]
