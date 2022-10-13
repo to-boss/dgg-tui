@@ -1,12 +1,11 @@
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, Event, KeyCode, KeyEvent},
+    event::{self, KeyCode},
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    error::Error,
-    io::{self, ErrorKind, Result},
+    io::{self, Result},
     sync::{Arc, Mutex},
     time::Duration,
 };

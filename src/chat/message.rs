@@ -29,6 +29,15 @@ impl Message {
             message,
         })
     }
+
+    pub fn from(name: String, message: String) -> Message {
+        Message {
+            name,
+            features: Vec::new(),
+            timestamp: 0,
+            message,
+        }
+    }
 }
 
 impl Display for Message {

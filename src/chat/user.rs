@@ -35,6 +35,7 @@ impl UserList {
             .iter_mut()
             .map(|user| User::from_json(user.to_string().as_str()).unwrap())
             .collect();
+
         Ok(UserList {
             users,
             conn_count: connection_count,

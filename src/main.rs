@@ -1,7 +1,8 @@
 use std::panic;
 use std::{io::stdout, io::Result, thread};
 
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyCode;
+use dgg::chat::user::{User, UserList};
 use dgg::{
     chat::{dgg::DGG, event::Action, message::Message},
     ui,
@@ -45,9 +46,21 @@ fn main() -> Result<()> {
                         state.add_message(msg);
                     }
                     Action::SendMsg => (),
-                    Action::UserJoin => (),
-                    Action::UserQuit => (),
-                    Action::UsersInit => (),
+                    Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
+                    Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),
+                    Action::UsersInit => {
+                        let mut ul = UserList::from_json(&event.body).unwrap();
+                        let msg = Message::from(
+                            "CONNECTED".to_string(),
+                            format!(
+                                "There a currently {} connections {} and users online.",
+                                ul.conn_count,
+                                ul.users.len()
+                            ),
+                        );
+                        state.add_message(msg);
+                        state.ul.append(&mut ul);
+                    }
                     Action::Mute => (),
                     Action::Unmute => (),
                     Action::Ban => (),
