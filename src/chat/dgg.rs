@@ -24,7 +24,7 @@ impl DGG {
         let url = url::Url::parse("wss://chat.destiny.gg/ws").unwrap();
 
         let (ws, _res) = connect(url).expect("Failed to connect to WebSocket.\n");
-        println!("Successfully connected to DGG 😍.");
+        // println!("Successfully connected to DGG 😍.");
 
         let state = Arc::new(Mutex::new(State::new(max_massages)));
         let (sender, receiver) = mpsc::channel();
