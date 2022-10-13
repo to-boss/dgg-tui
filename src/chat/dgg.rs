@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use tungstenite::{connect, stream::MaybeTlsStream, Message, WebSocket};
+use tungstenite::{connect, http::Request, stream::MaybeTlsStream, Message, WebSocket};
 use url;
 
 use super::state::State;
@@ -24,10 +24,23 @@ impl DGG {
         let token =
             String::from("251rLOxzq4M9GSsW52DVIZVFvGqDhOSP4wG7pMkTYJO0VH5l32FKQoQOuzuduhGt");
 
-        // TODO: Check for errors and no unwrap?
-        let url = url::Url::parse("wss://chat.destiny.gg/ws").unwrap();
+        let request = Request::builder()
+            // .method("GET")
+            .header("Host", "live.destiny.gg")
+            .header("Origin", "https://www.destiny.gg")
+            .header("Connection", "Upgrade")
+            .header("Upgrade", "websocket")
+            .header("Sec-WebSocket-Version", "13")
+            .header(
+                "Sec-WebSocket-Key",
+                tungstenite::handshake::client::generate_key(),
+            )
+            .header("cookie", format!("authtoken={}", token))
+            .uri("wss://live.destiny.gg/")
+            .body(())
+            .unwrap();
 
-        let (ws, _res) = connect(url).expect("Failed to connect to WebSocket.\n");
+        let (ws, _res) = connect(request).expect("Failed to connect to WebSocket.\n");
         // println!("Successfully connected to DGG 😍.");
 
         let state = Arc::new(Mutex::new(State::new(max_massages)));

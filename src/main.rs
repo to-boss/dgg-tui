@@ -2,11 +2,11 @@ use std::panic;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
-use crossterm::event::{self, KeyCode};
+use crossterm::event::{self};
 use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
-use dgg::ui::render::{close, draw, get_key, init};
+use dgg::ui::render::{close, draw, init};
 use tui::style::{Color, Style};
 use tui::widgets::{Block, Borders};
 use tui::{backend::CrosstermBackend, Terminal};
