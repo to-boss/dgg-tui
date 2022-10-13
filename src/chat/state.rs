@@ -11,7 +11,6 @@ pub struct State {
     pub deque: VecDeque<Event>,
     pub max_messages: usize,
     pub inc_messages: Vec<Message>,
-    pub out_message: Option<String>,
 }
 
 impl State {
@@ -19,14 +18,12 @@ impl State {
         let ul = UserList::new();
         let deque = VecDeque::new();
         let inc_messages = Vec::new();
-        let out_message = None;
 
         State {
             ul,
             deque,
             max_messages,
             inc_messages,
-            out_message,
         }
     }
 
@@ -42,13 +39,11 @@ impl State {
         self.deque.push_back(Event::new(act, body));
     }
 
-    pub fn push(&mut self, event: Event) {
+    pub fn push_event(&mut self, event: Event) {
         self.deque.push_back(event);
     }
 
-    pub fn consume(&mut self) {
-        while let Some(event) = self.deque.pop_front() {
-            event.action.consume();
-        }
+    pub fn pop_event(&mut self) -> Option<Event> {
+        self.deque.pop_front()
     }
 }

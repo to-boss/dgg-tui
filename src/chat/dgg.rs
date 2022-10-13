@@ -59,6 +59,7 @@ impl DGG {
     pub fn work(&mut self) {
         loop {
             // Receiving from WebSocket
+            // blocking
             let msg = match self.ws.read_message() {
                 Ok(val) => val.to_string(),
                 Err(err) => panic!("Can't read message! {}", err),
@@ -69,6 +70,7 @@ impl DGG {
             self.state.lock().unwrap().push_new_event(&prefix, json);
 
             // Sending to WebSocket
+            // non blocking
             match self.receiver.try_recv() {
                 Ok(msg_to_send) => {
                     self.state
