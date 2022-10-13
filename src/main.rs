@@ -1,4 +1,4 @@
-use std::{io::stdin, thread};
+use std::thread;
 
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 

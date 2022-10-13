@@ -1,6 +1,5 @@
 use std::{
     net::TcpStream,
-    str::FromStr,
     sync::{
         mpsc::{self, Receiver, Sender, TryRecvError},
         Arc, Mutex,
@@ -10,18 +9,7 @@ use std::{
 use tungstenite::{connect, stream::MaybeTlsStream, WebSocket};
 use url;
 
-use super::{
-    event::{self, Action, Event},
-    state::State,
-};
-
-macro_rules! c_dbg {
-    ($self:ident, $exp:expr) => {
-        if $self.debug {
-            println!("{}", $exp);
-        }
-    };
-}
+use super::state::State;
 
 pub struct DGG {
     pub ws: WebSocket<MaybeTlsStream<TcpStream>>,
@@ -82,10 +70,6 @@ impl DGG {
                 Err(TryRecvError::Disconnected) => break,
             }
         }
-    }
-
-    pub fn close(&mut self) {
-        self.ws.close(None);
     }
 
     pub fn debug_on(&mut self) {
