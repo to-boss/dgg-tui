@@ -16,9 +16,8 @@ pub fn parse_emotes(s: String, emotes: &EmoteList) -> String {
         }
     });
 
-    // reconstruct into message
-    let ret = words.join(" ");
-    ret
+    // reconstruct into message and return
+    words.join(" ")
 }
 
 pub fn parse_flair(feats: &Vec<String>) -> Feature {

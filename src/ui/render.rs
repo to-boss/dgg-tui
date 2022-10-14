@@ -139,9 +139,9 @@ fn render_chat<B: Backend>(
                 Feature::Tier2 => Style::default().fg(Color::LightCyan),
                 Feature::Tier3 => Style::default().fg(Color::Green),
                 Feature::Tier4 => Style::default().fg(Color::Magenta),
-                Feature::Vip => Style::default().fg(Color::Rgb(231, 144, 21)),
+                Feature::Vip => Style::default().fg(Color::Rgb(230, 144, 20)),
                 Feature::Mod => Style::default().fg(Color::Yellow),
-                Feature::Broadcaster => Style::default().fg(Color::Rgb(231, 144, 21)),
+                Feature::Broadcaster => Style::default().fg(Color::Rgb(230, 144, 20)),
                 Feature::Admin => Style::default().fg(Color::Red),
                 _ => Style::default().fg(Color::White),
             };
@@ -154,12 +154,12 @@ fn render_chat<B: Backend>(
             // Handle Name Hightlight own Message
             let mut background = Style::default().bg(Color::Black);
             if name == state.username {
-                background = Style::default().bg(Color::Rgb(21, 21, 21));
+                background = Style::default().bg(Color::Rgb(50, 50, 50));
             }
 
             // Handle Highlight other Message
             if pm.contains(&state.username) {
-                background = Style::default().bg(Color::Rgb(6, 38, 62));
+                background = Style::default().bg(Color::Rgb(10, 40, 60));
             }
 
             let line = Spans::from(vec![

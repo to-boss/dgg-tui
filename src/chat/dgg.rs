@@ -53,19 +53,19 @@ impl DGG {
                 Err(_) => String::new(),
             };
 
-            // Adds Event from WebSocket to Queue
             let mut state = self.state.lock().unwrap();
+            // Check if we want to send a message
+            if let Some(msg) = &state.message_to_send {
+                self.ws.write_message(msg.clone().into()).unwrap();
+                state.message_to_send = None;
+            }
+
+            // Adds Event from WebSocket to Queue
             if !msg.is_empty() {
                 let msg_splits: Vec<String> = msg.splitn(2, " ").map(|s| s.to_owned()).collect();
 
                 let (prefix, json) = (msg_splits[0].clone(), msg_splits[1].clone());
                 state.push_new_event(&prefix, json.clone());
-            }
-
-            // Check if we want to send a message
-            if let Some(msg) = &state.message_to_send {
-                self.ws.write_message(msg.clone().into()).unwrap();
-                state.message_to_send = None;
             }
         }
     }
