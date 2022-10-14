@@ -17,7 +17,7 @@ use tui_textarea::{Input, Key, TextArea};
 fn main() -> Result<()> {
     custom_panic();
 
-    let mut dgg = DGG::new(99);
+    let (mut dgg, sender) = DGG::new(99);
     let dgg_state = dgg.get_state_ref();
 
     let _ = thread::spawn(move || dgg.work());
@@ -71,8 +71,8 @@ fn main() -> Result<()> {
                         state.add_message(msg);
                     }
                     Action::SendMsg => {
-                        let message_to_send = Some(format!(r#"MSG {{"data":"{}"}}"#, event.body));
-                        state.message_to_send = message_to_send;
+                        let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, event.body);
+                        sender.send(message_to_send).unwrap();
                     }
                     Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
                     Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),

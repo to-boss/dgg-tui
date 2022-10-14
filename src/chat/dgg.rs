@@ -1,6 +1,9 @@
 use std::{
     net::TcpStream,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Arc, Mutex,
+    },
 };
 
 use tungstenite::{connect, http::Request, stream::MaybeTlsStream, WebSocket};
@@ -9,12 +12,13 @@ use super::state::State;
 
 pub struct DGG {
     pub ws: WebSocket<MaybeTlsStream<TcpStream>>,
+    pub rx: Receiver<String>,
     pub state: Arc<Mutex<State>>,
     pub token: String,
 }
 
 impl DGG {
-    pub fn new(max_massages: usize) -> Self {
+    pub fn new(max_massages: usize) -> (Self, Sender<String>) {
         let name = String::from("onlyclose");
         let token =
             String::from("251rLOxzq4M9GSsW52DVIZVFvGqDhOSP4wG7pMkTYJO0VH5l32FKQoQOuzuduhGt");
@@ -37,8 +41,17 @@ impl DGG {
         let (ws, _res) = connect(request).expect("Failed to connect to WebSocket.\n");
 
         let state = Arc::new(Mutex::new(State::new(max_massages, name)));
+        let (tx, rx) = mpsc::channel();
 
-        DGG { ws, state, token }
+        (
+            DGG {
+                ws,
+                state,
+                token,
+                rx,
+            },
+            tx,
+        )
     }
 
     pub fn get_state_ref(&self) -> Arc<Mutex<State>> {
@@ -47,25 +60,26 @@ impl DGG {
 
     pub fn work(&mut self) {
         loop {
+            // Check if we want to send a message
+            match self.rx.try_recv() {
+                Ok(msg) => self.ws.write_message(msg.into()).unwrap(),
+                Err(mpsc::TryRecvError::Empty) => (),
+                Err(mpsc::TryRecvError::Disconnected) => break,
+            }
+
             // Receiving from WebSocket
             let msg = match self.ws.read_message() {
                 Ok(msg) => msg.to_string(),
                 Err(_) => String::new(),
             };
 
-            let mut state = self.state.lock().unwrap();
-            // Check if we want to send a message
-            if let Some(msg) = &state.message_to_send {
-                self.ws.write_message(msg.clone().into()).unwrap();
-                state.message_to_send = None;
-            }
-
             // Adds Event from WebSocket to Queue
             if !msg.is_empty() {
                 let msg_splits: Vec<String> = msg.splitn(2, " ").map(|s| s.to_owned()).collect();
 
                 let (prefix, json) = (msg_splits[0].clone(), msg_splits[1].clone());
-                state.push_new_event(&prefix, json.clone());
+                let mut state = self.state.lock().unwrap();
+                state.push_new_event(&prefix, json);
             }
         }
     }
