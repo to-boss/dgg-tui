@@ -19,7 +19,11 @@ use tui::{
 };
 use tui_textarea::TextArea;
 
-use crate::chat::{features::Feature, state::State};
+use crate::chat::{
+    features::Feature,
+    state::{State, Window},
+    user,
+};
 
 use super::{
     emotes::EmoteList,
@@ -60,21 +64,50 @@ pub fn draw<B: Backend>(
     text_area: &mut TextArea,
 ) -> Result<()> {
     let mut state = state.lock().unwrap();
+    let debug_active = state.windows[0].active;
+    let userlist_active = state.windows[1].active;
 
     let size = f.size();
-    let chunks = get_chunks(&size, &state.users_window);
+    let chunks = get_chunks(&size, &state.windows);
 
-    let max_items = (chunks[0].height - 2) as usize;
-    state.max_messages = max_items;
+    // let max_items = (chunks[0].height - 2) as usize;
+    // state.max_messages = max_items;
 
-    render_chat(f, chunks[0], &state, &emotes);
-    f.render_widget(text_area.widget(), chunks[1]);
-
-    if state.users_window {
+    if debug_active == true && userlist_active == true {
+        render_debug(f, chunks[2], &state);
+        render_users(f, chunks[3], &state);
+    } else if debug_active {
+        render_debug(f, chunks[2], &state);
+    } else if userlist_active {
         render_users(f, chunks[2], &state);
     }
 
+    // Always render chat and chat_input
+    render_chat(f, chunks[0], &state, &emotes);
+    f.render_widget(text_area.widget(), chunks[1]);
+
     Ok(())
+}
+
+fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
+    let max_items = (chunk.height - 2) as usize;
+    let items: Vec<ListItem> = state
+        .debugs
+        .iter()
+        .take(max_items)
+        .map(|msg| {
+            let line = Spans::from(vec![Span::styled(format!("{}", msg), Style::default())]);
+            ListItem::new(line)
+        })
+        .collect();
+
+    let debug_messages = List::new(items).block(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL)
+            .title(format!("Debugs")),
+    );
+    f.render_widget(debug_messages, chunk);
 }
 
 fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
@@ -120,11 +153,11 @@ fn render_chat<B: Backend>(
     state: &MutexGuard<State>,
     emotes: &EmoteList,
 ) {
-    let max_items = (chunk.height - 2) as usize;
+    // let max_items = (chunk.height - 2) as usize;
     let items: Vec<ListItem> = state
         .messages
         .iter()
-        .take(max_items)
+        //.take(max_items)
         .map(|m| {
             let name = m.name.to_string();
             let message_style = Style::default().fg(Color::White);
@@ -182,21 +215,61 @@ fn render_chat<B: Backend>(
     f.render_widget(chat_messages, chunk);
 }
 
-fn get_chunks(size: &Rect, users_window: &bool) -> Vec<Rect> {
-    if *users_window == false {
-        Layout::default()
+fn get_chunks(size: &Rect, windows: &Vec<Window>) -> Vec<Rect> {
+    let area = *size;
+    let debug_active = windows[0].active;
+    let userlist_active = windows[1].active;
+
+    let mut constraints = vec![Constraint::Percentage(100)];
+    let mut chunks = Layout::default()
+        .constraints(constraints)
+        .direction(Direction::Horizontal)
+        .split(area);
+
+    let mut chat = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
+        .split(chunks[0]);
+
+    if debug_active == true && userlist_active == true {
+        constraints = vec![Constraint::Percentage(20), Constraint::Percentage(80)];
+        chunks = Layout::default()
+            .constraints(constraints)
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
-            .split(*size)
-    } else {
-        let chunks = Layout::default()
+            .split(area);
+        let users = Layout::default()
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(75), Constraint::Percentage(25)].as_ref())
-            .split(*size);
-        let left = Layout::default()
+            .split(chunks[1]);
+        chat = Layout::default()
+            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
+            .split(users[0]);
+        return vec![chat[0], chat[1], chunks[0], users[1]];
+    } else if debug_active {
+        constraints = vec![Constraint::Percentage(20), Constraint::Percentage(80)];
+        chunks = Layout::default()
+            .constraints(constraints)
+            .direction(Direction::Vertical)
+            .split(area);
+        chat = Layout::default()
+            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
+            .direction(Direction::Vertical)
+            .split(chunks[1]);
+        return vec![chat[0], chat[1], chunks[0]];
+    } else if userlist_active {
+        constraints = vec![Constraint::Percentage(75), Constraint::Percentage(25)];
+        chunks = Layout::default()
+            .constraints(constraints)
+            .direction(Direction::Horizontal)
+            .split(area);
+
+        chat = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
             .split(chunks[0]);
-        vec![left[0], left[1], chunks[1]]
+        return vec![chat[0], chat[1], chunks[1]];
     }
+
+    return vec![chat[0], chat[1]];
 }

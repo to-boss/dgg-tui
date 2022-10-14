@@ -11,7 +11,8 @@ impl Event {
 }
 
 pub enum Action {
-    ChangeWindow,
+    ChangeDebug,
+    ChangeUserList,
     RecvMsg,
     SendMsg,
     UserJoin,

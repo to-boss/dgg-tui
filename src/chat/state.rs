@@ -12,8 +12,9 @@ pub struct State {
     pub deque: VecDeque<Event>,
     pub max_messages: usize,
     pub messages: Vec<Message>,
-    pub users_window: bool,
+    pub windows: Vec<Window>,
     pub message_to_send: Option<String>,
+    pub debugs: Vec<String>,
 }
 
 impl State {
@@ -21,6 +22,12 @@ impl State {
         let ul = UserList::new();
         let deque = VecDeque::new();
         let messages = Vec::new();
+        let mut debugs = Vec::new();
+        let windows = vec![Window::new("Debug", false), Window::new("UserList", true)];
+
+        debugs.push(String::from("H1"));
+        debugs.push(String::from("H2"));
+        debugs.push(String::from("H3"));
 
         State {
             username,
@@ -28,8 +35,9 @@ impl State {
             deque,
             max_messages,
             messages,
-            users_window: true,
+            windows,
             message_to_send: None,
+            debugs,
         }
     }
 
@@ -59,5 +67,25 @@ impl State {
 
     pub fn pop_event(&mut self) -> Option<Event> {
         self.deque.pop_front()
+    }
+
+    pub fn add_debug(&mut self, s: String) {
+        self.debugs.push(s);
+    }
+}
+
+#[derive(PartialEq, Eq)]
+pub struct Window {
+    pub name: &'static str,
+    pub active: bool,
+}
+
+impl Window {
+    pub fn new(name: &'static str, active: bool) -> Self {
+        Window { name, active }
+    }
+
+    pub fn flip(&mut self) {
+        self.active = !self.active;
     }
 }
