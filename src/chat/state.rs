@@ -12,8 +12,7 @@ pub struct State {
     pub max_messages: usize,
     pub messages: Vec<Message>,
     pub users_window: bool,
-    pub send_message: bool,
-    pub message_to_send: String,
+    pub message_to_send: Option<String>,
 }
 
 impl State {
@@ -27,10 +26,13 @@ impl State {
             deque,
             max_messages,
             messages,
-            users_window: false,
-            send_message: false,
-            message_to_send: String::from(""),
+            users_window: true,
+            message_to_send: None,
         }
+    }
+
+    pub fn add_send_message(&mut self, send_msg: String) {
+        self.message_to_send = Some(send_msg);
     }
 
     pub fn add_message(&mut self, msg: Message) {
@@ -38,6 +40,10 @@ impl State {
             self.messages.drain(0..1);
         }
         self.messages.push(msg);
+    }
+
+    pub fn push_ui_events(&mut self, events: &mut VecDeque<Event>) {
+        self.deque.append(events);
     }
 
     pub fn push_new_event(&mut self, action: &str, body: String) {

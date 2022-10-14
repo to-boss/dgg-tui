@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
 use std::panic;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
 use crossterm::event::{self};
+use dgg::chat::event::Event;
 use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
@@ -31,30 +33,29 @@ fn main() -> Result<()> {
     text_area.set_cursor_line_style(Style::default());
     text_area.set_block(Block::default().borders(Borders::ALL).title("Send"));
 
+    let mut ui_events: VecDeque<Event> = VecDeque::new();
+
     loop {
         match terminal.draw(|f| draw(f, &dgg_state, &emotes, &mut text_area).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
         }
 
-        // if let Ok(val) = get_key() {
-        //     match val {
-        //         KeyCode::Esc => break,
-        //         KeyCode::F(1) => dgg_sender.send(0).unwrap(),
-        //         KeyCode::Enter => dgg_sender.send(1).unwrap(),
-        //         _ => (),
-        //     }
-        // }
-
         if let Ok(bool) = event::poll(Duration::default()) {
             if bool {
                 match crossterm::event::read()?.into() {
                     Input { key: Key::Esc, .. } => break,
-                    Input { key: Key::F(1), .. } => dgg_sender.send(0).unwrap(),
+                    Input { key: Key::F(1), .. } => {
+                        ui_events.push_back(Event::new(Action::ChangeWindow, "users".to_string()))
+                    }
                     Input {
                         key: Key::Enter, ..
                     } => {
-                        dgg_sender.send(1).unwrap();
+                        ui_events.push_back(Event::new(
+                            Action::SendMsg,
+                            text_area.lines()[0].to_string(),
+                        ));
+                        text_area.delete_line_by_head();
                     }
                     input => {
                         text_area.input(input);
@@ -64,6 +65,8 @@ fn main() -> Result<()> {
         }
 
         if let Ok(mut state) = dgg_state.try_lock() {
+            state.push_ui_events(&mut ui_events);
+
             while let Some(event) = state.pop_event() {
                 match event.action {
                     Action::RecvMsg => {
@@ -71,8 +74,8 @@ fn main() -> Result<()> {
                         state.add_message(msg);
                     }
                     Action::SendMsg => {
-                        state.message_to_send = event.body.clone();
-                        state.send_message = true;
+                        let message_to_send = Some(format!(r#"MSG {{"data":"{}"}}"#, event.body));
+                        state.message_to_send = message_to_send;
                     }
                     Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
                     Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),
@@ -101,9 +104,10 @@ fn main() -> Result<()> {
                     Action::Err => (),
                     Action::Refresh => (),
                     Action::Binary => (),
+                    Action::ChangeWindow => state.users_window = !state.users_window,
                 }
             }
-        }
+        };
     }
 
     // let _ = dgg_handle.join();

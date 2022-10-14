@@ -59,41 +59,31 @@ pub fn get_key() -> crossterm::Result<KeyCode> {
 
 pub fn draw<B: Backend>(
     f: &mut Frame<B>,
-    app: &Arc<Mutex<State>>,
+    state: &Arc<Mutex<State>>,
     emotes: &EmoteList,
     text_area: &mut TextArea,
 ) -> Result<()> {
-    let mut app = app.lock().unwrap();
+    let mut state = state.lock().unwrap();
 
     let size = f.size();
-    let chunks = get_chunks(&size, &app.users_window);
+    let chunks = get_chunks(&size, &state.users_window);
 
     let max_items = (chunks[0].height - 2) as usize;
-    app.max_messages = max_items;
+    state.max_messages = max_items;
 
-    render_chat(f, chunks[0], &app, &emotes);
-
-    // render input window
-
-    if app.send_message {
-        app.push_event(Event::new(
-            Action::SendMsg,
-            text_area.lines()[0].to_string(),
-        ));
-    }
+    render_chat(f, chunks[0], &state, &emotes);
     f.render_widget(text_area.widget(), chunks[1]);
 
-    // render member list window
-    if app.users_window {
-        render_users(f, chunks[2], &app);
+    if state.users_window {
+        render_users(f, chunks[2], &state);
     }
 
     Ok(())
 }
 
-fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, app: &MutexGuard<State>) {
+fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
     let max_items = (chunk.height - 2) as usize;
-    let items: Vec<ListItem> = app
+    let items: Vec<ListItem> = state
         .ul
         .users
         .iter()
@@ -123,7 +113,7 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, app: &MutexGuard<Stat
         Block::default()
             .style(Style::default().bg(Color::Black))
             .borders(Borders::ALL)
-            .title(format!("{} Users", app.ul.users.len())),
+            .title(format!("{} Users", state.ul.users.len())),
     );
     f.render_widget(chatter_names, chunk);
 }
@@ -131,11 +121,11 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, app: &MutexGuard<Stat
 fn render_chat<B: Backend>(
     f: &mut Frame<B>,
     chunk: Rect,
-    app: &MutexGuard<State>,
+    state: &MutexGuard<State>,
     emotes: &EmoteList,
 ) {
     let max_items = (chunk.height - 2) as usize;
-    let items: Vec<ListItem> = app
+    let items: Vec<ListItem> = state
         .messages
         .iter()
         .take(max_items)
