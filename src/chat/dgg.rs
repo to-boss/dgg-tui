@@ -1,26 +1,21 @@
 use std::{
     net::TcpStream,
-    sync::{
-        mpsc::{self, Receiver, Sender, TryRecvError},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 
-use tungstenite::{connect, http::Request, stream::MaybeTlsStream, Message, WebSocket};
-use url;
+use tungstenite::{connect, http::Request, stream::MaybeTlsStream, WebSocket};
 
 use super::state::State;
 
 pub struct DGG {
     pub ws: WebSocket<MaybeTlsStream<TcpStream>>,
     pub state: Arc<Mutex<State>>,
-    pub receiver: Receiver<usize>,
-    pub debug: bool,
     pub token: String,
 }
 
 impl DGG {
-    pub fn new(max_massages: usize) -> (Self, Sender<usize>) {
+    pub fn new(max_massages: usize) -> Self {
+        let name = String::from("onlyclose");
         let token =
             String::from("251rLOxzq4M9GSsW52DVIZVFvGqDhOSP4wG7pMkTYJO0VH5l32FKQoQOuzuduhGt");
 
@@ -41,19 +36,9 @@ impl DGG {
 
         let (ws, _res) = connect(request).expect("Failed to connect to WebSocket.\n");
 
-        let state = Arc::new(Mutex::new(State::new(max_massages)));
-        let (sender, receiver) = mpsc::channel();
+        let state = Arc::new(Mutex::new(State::new(max_massages, name)));
 
-        (
-            DGG {
-                ws,
-                state,
-                receiver,
-                debug: false,
-                token,
-            },
-            sender,
-        )
+        DGG { ws, state, token }
     }
 
     pub fn get_state_ref(&self) -> Arc<Mutex<State>> {
@@ -83,9 +68,5 @@ impl DGG {
                 state.message_to_send = None;
             }
         }
-    }
-
-    pub fn debug_on(&mut self) {
-        self.debug = true;
     }
 }

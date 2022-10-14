@@ -7,6 +7,7 @@ use super::{
 };
 
 pub struct State {
+    pub username: String,
     pub ul: UserList,
     pub deque: VecDeque<Event>,
     pub max_messages: usize,
@@ -16,12 +17,13 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(max_messages: usize) -> State {
+    pub fn new(max_messages: usize, username: String) -> State {
         let ul = UserList::new();
         let deque = VecDeque::new();
         let messages = Vec::new();
 
         State {
+            username,
             ul,
             deque,
             max_messages,

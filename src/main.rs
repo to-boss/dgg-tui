@@ -17,9 +17,8 @@ use tui_textarea::{Input, Key, TextArea};
 fn main() -> Result<()> {
     custom_panic();
 
-    let (mut dgg, dgg_sender) = DGG::new(99);
+    let mut dgg = DGG::new(99);
     let dgg_state = dgg.get_state_ref();
-    dgg.debug_on();
 
     let _ = thread::spawn(move || dgg.work());
 
@@ -41,25 +40,23 @@ fn main() -> Result<()> {
             Err(_) => break,
         }
 
-        if let Ok(bool) = event::poll(Duration::default()) {
-            if bool {
-                match crossterm::event::read()?.into() {
-                    Input { key: Key::Esc, .. } => break,
-                    Input { key: Key::F(1), .. } => {
-                        ui_events.push_back(Event::new(Action::ChangeWindow, "users".to_string()))
-                    }
-                    Input {
-                        key: Key::Enter, ..
-                    } => {
-                        ui_events.push_back(Event::new(
-                            Action::SendMsg,
-                            text_area.lines()[0].to_string(),
-                        ));
-                        text_area.delete_line_by_head();
-                    }
-                    input => {
-                        text_area.input(input);
-                    }
+        if let Ok(true) = event::poll(Duration::default()) {
+            match crossterm::event::read()?.into() {
+                Input { key: Key::Esc, .. } => break,
+                Input { key: Key::F(1), .. } => {
+                    ui_events.push_back(Event::new(Action::ChangeWindow, "users".to_string()))
+                }
+                Input {
+                    key: Key::Enter, ..
+                } => {
+                    ui_events.push_back(Event::new(
+                        Action::SendMsg,
+                        text_area.lines()[0].to_string(),
+                    ));
+                    text_area.delete_line_by_head();
+                }
+                input => {
+                    text_area.input(input);
                 }
             }
         }

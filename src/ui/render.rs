@@ -19,11 +19,7 @@ use tui::{
 };
 use tui_textarea::TextArea;
 
-use crate::chat::{
-    event::{Action, Event},
-    features::Feature,
-    state::State,
-};
+use crate::chat::{features::Feature, state::State};
 
 use super::{
     emotes::EmoteList,
@@ -131,6 +127,8 @@ fn render_chat<B: Backend>(
         .take(max_items)
         .map(|m| {
             let name = m.name.to_string();
+            let message_style = Style::default().fg(Color::White);
+
             // Replace Emote Strings in Message
             let pm = parse_emotes(m.message.to_string(), emotes);
 
@@ -149,11 +147,20 @@ fn render_chat<B: Backend>(
             };
 
             // Handle Greentext
-            let message_style = if pm.starts_with(">") {
-                Style::default().fg(Color::Green)
-            } else {
-                Style::default().fg(Color::White)
-            };
+            if pm.starts_with(">") {
+                message_style.fg(Color::Green);
+            }
+
+            // Handle Name Hightlight own Message
+            let mut background = Style::default().bg(Color::Black);
+            if name == state.username {
+                background = Style::default().bg(Color::Rgb(21, 21, 21));
+            }
+
+            // Handle Highlight other Message
+            if pm.contains(&state.username) {
+                background = Style::default().bg(Color::Rgb(6, 38, 62));
+            }
 
             let line = Spans::from(vec![
                 Span::styled(format!("{}", name), name_style),
@@ -161,16 +168,17 @@ fn render_chat<B: Backend>(
                 Span::styled(format!("{} ", pm), message_style),
             ]);
 
-            ListItem::new(line)
+            ListItem::new(line).style(background)
         })
         .collect();
 
     let chat_messages = List::new(items).block(
         Block::default()
-            .style(Style::default().bg(Color::Black))
+            .style(Style::default().bg(Color::Rgb(8, 8, 8)))
             .borders(Borders::ALL)
             .title("DGG-Chat"),
     );
+
     f.render_widget(chat_messages, chunk);
 }
 
@@ -179,7 +187,6 @@ fn get_chunks(size: &Rect, users_window: &bool) -> Vec<Rect> {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
-            .margin(0)
             .split(*size)
     } else {
         let chunks = Layout::default()
@@ -189,7 +196,6 @@ fn get_chunks(size: &Rect, users_window: &bool) -> Vec<Rect> {
         let left = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(90), Constraint::Percentage(10)].as_ref())
-            .margin(0)
             .split(chunks[0]);
         vec![left[0], left[1], chunks[1]]
     }
