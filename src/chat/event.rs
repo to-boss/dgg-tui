@@ -11,6 +11,8 @@ impl Event {
 }
 
 pub enum Action {
+    GetChatHistory,
+    GetEmbeds,
     ChangeDebug,
     ChangeUserList,
     RecvMsg,

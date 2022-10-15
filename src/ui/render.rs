@@ -11,15 +11,16 @@ use std::{
 };
 use tui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 use tui_textarea::TextArea;
 
 use crate::chat::{
+    self,
     features::Feature,
     state::{State, Window},
     user,
@@ -63,15 +64,12 @@ pub fn draw<B: Backend>(
     emotes: &EmoteList,
     text_area: &mut TextArea,
 ) -> Result<()> {
-    let mut state = state.lock().unwrap();
+    let state = state.lock().unwrap();
     let debug_active = state.windows[0].active;
     let userlist_active = state.windows[1].active;
 
     let size = f.size();
     let chunks = get_chunks(&size, &state.windows);
-
-    // let max_items = (chunks[0].height - 2) as usize;
-    // state.max_messages = max_items;
 
     if debug_active == true && userlist_active == true {
         render_debug(f, chunks[2], &state);
@@ -90,24 +88,26 @@ pub fn draw<B: Backend>(
 }
 
 fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
+    let debug_block = Block::default()
+        .style(Style::default().bg(Color::Black))
+        .borders(Borders::ALL)
+        .title("Debugs");
+
     let max_items = (chunk.height - 2) as usize;
-    let items: Vec<ListItem> = state
+    let text: Vec<Spans> = state
         .debugs
         .iter()
         .take(max_items)
-        .map(|msg| {
-            let line = Spans::from(vec![Span::styled(format!("{}", msg), Style::default())]);
-            ListItem::new(line)
-        })
+        .map(|line| Spans::from(Span::styled(line, Style::default().fg(Color::White))))
         .collect();
 
-    let debug_messages = List::new(items).block(
-        Block::default()
-            .style(Style::default().bg(Color::Black))
-            .borders(Borders::ALL)
-            .title(format!("Debugs")),
-    );
-    f.render_widget(debug_messages, chunk);
+    let paragraph = Paragraph::new(text)
+        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .block(debug_block)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true })
+        .scroll((0, 0));
+    f.render_widget(paragraph, chunk);
 }
 
 fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
@@ -153,11 +153,11 @@ fn render_chat<B: Backend>(
     state: &MutexGuard<State>,
     emotes: &EmoteList,
 ) {
-    // let max_items = (chunk.height - 2) as usize;
-    let items: Vec<ListItem> = state
+    let max_items = (chunk.height - 2) as usize;
+    let text: Vec<Spans> = state
         .messages
         .iter()
-        //.take(max_items)
+        .take(max_items)
         .map(|m| {
             let name = m.name.to_string();
             let message_style = Style::default().fg(Color::White);
@@ -185,32 +185,35 @@ fn render_chat<B: Backend>(
             }
 
             // Handle Name Hightlight own Message
-            let mut background = Style::default().bg(Color::Black);
+            let mut bg_color = Color::Black;
             if name == state.username {
-                background = Style::default().bg(Color::Rgb(50, 50, 50));
+                bg_color = Color::Rgb(50, 50, 50);
             }
 
             // Handle Highlight other Message
             if pm.contains(&state.username) {
-                background = Style::default().bg(Color::Rgb(10, 40, 60));
+                bg_color = Color::Rgb(10, 40, 60);
             }
 
-            let line = Spans::from(vec![
-                Span::styled(format!("{}", name), name_style),
-                Span::raw(": "),
-                Span::styled(format!("{} ", pm), message_style),
-            ]);
-
-            ListItem::new(line).style(background)
+            Spans::from(vec![
+                Span::styled(format!("{}", name), name_style.bg(bg_color)),
+                Span::styled(": ", Style::default().bg(bg_color)),
+                Span::styled(format!("{} ", pm), message_style.bg(bg_color)),
+            ])
         })
         .collect();
 
-    let chat_messages = List::new(items).block(
-        Block::default()
-            .style(Style::default().bg(Color::Rgb(8, 8, 8)))
-            .borders(Borders::ALL)
-            .title("DGG-Chat"),
-    );
+    let chat_block = Block::default()
+        .style(Style::default().bg(Color::Black))
+        .borders(Borders::ALL)
+        .title("DGG-Chat");
+
+    let chat_messages = Paragraph::new(text)
+        .style(Style::default().bg(Color::Black))
+        .block(chat_block)
+        .alignment(Alignment::Left)
+        .wrap(Wrap { trim: true })
+        .scroll((0, 0));
 
     f.render_widget(chat_messages, chunk);
 }
@@ -232,7 +235,7 @@ fn get_chunks(size: &Rect, windows: &Vec<Window>) -> Vec<Rect> {
         .split(chunks[0]);
 
     if debug_active == true && userlist_active == true {
-        constraints = vec![Constraint::Percentage(20), Constraint::Percentage(80)];
+        constraints = vec![Constraint::Percentage(50), Constraint::Percentage(50)];
         chunks = Layout::default()
             .constraints(constraints)
             .direction(Direction::Vertical)
@@ -258,7 +261,7 @@ fn get_chunks(size: &Rect, windows: &Vec<Window>) -> Vec<Rect> {
             .split(chunks[1]);
         return vec![chat[0], chat[1], chunks[0]];
     } else if userlist_active {
-        constraints = vec![Constraint::Percentage(75), Constraint::Percentage(25)];
+        constraints = vec![Constraint::Percentage(80), Constraint::Percentage(20)];
         chunks = Layout::default()
             .constraints(constraints)
             .direction(Direction::Horizontal)

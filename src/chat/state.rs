@@ -22,12 +22,8 @@ impl State {
         let ul = UserList::new();
         let deque = VecDeque::new();
         let messages = Vec::new();
-        let mut debugs = Vec::new();
+        let debugs = Vec::new();
         let windows = vec![Window::new("Debug", false), Window::new("UserList", true)];
-
-        debugs.push(String::from("H1"));
-        debugs.push(String::from("H2"));
-        debugs.push(String::from("H3"));
 
         State {
             username,

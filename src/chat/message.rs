@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{fmt::Display, io::Error};
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Message {
     pub name: String,
     pub features: Vec<String>,

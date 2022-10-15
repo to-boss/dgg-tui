@@ -2,7 +2,7 @@ use std::{
     net::TcpStream,
     sync::{
         mpsc::{self, Receiver, Sender},
-        Arc, Mutex,
+        Arc, Mutex, MutexGuard,
     },
 };
 
@@ -81,6 +81,15 @@ impl DGG {
                 let mut state = self.state.lock().unwrap();
                 state.push_new_event(&prefix, json);
             }
+        }
+    }
+
+    pub fn parse_ws_message(msg: &str, state: &mut MutexGuard<State>) {
+        if !msg.is_empty() {
+            let msg_splits: Vec<String> = msg.splitn(2, " ").map(|s| s.to_owned()).collect();
+
+            let (prefix, json) = (msg_splits[0].clone(), msg_splits[1].clone());
+            state.push_new_event(&prefix, json);
         }
     }
 }

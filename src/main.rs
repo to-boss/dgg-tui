@@ -4,8 +4,8 @@ use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
 use crossterm::event::{self};
+use dgg::chat::api::ApiCaller;
 use dgg::chat::event::Event;
-use dgg::chat::state::Window;
 use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
@@ -18,7 +18,7 @@ use tui_textarea::{Input, Key, TextArea};
 fn main() -> Result<()> {
     custom_panic();
 
-    let (mut dgg, sender) = DGG::new(99);
+    let (mut dgg, sender) = DGG::new(200);
     let dgg_state = dgg.get_state_ref();
 
     let _ = thread::spawn(move || dgg.work());
@@ -27,6 +27,7 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).unwrap();
     let emotes = EmoteList::new();
+    let api_caller = ApiCaller::new();
 
     let mut text_area = TextArea::default();
     text_area.set_block(
@@ -37,6 +38,10 @@ fn main() -> Result<()> {
     );
 
     let mut ui_events: VecDeque<Event> = VecDeque::new();
+    ui_events.push_back(Event::new(
+        Action::GetChatHistory,
+        "chat_history".to_string(),
+    ));
 
     loop {
         match terminal.draw(|f| draw(f, &dgg_state, &emotes, &mut text_area).unwrap()) {
@@ -52,6 +57,9 @@ fn main() -> Result<()> {
                 }
                 Input { key: Key::F(2), .. } => {
                     ui_events.push_back(Event::new(Action::ChangeDebug, "debug".to_string()))
+                }
+                Input { key: Key::F(3), .. } => {
+                    ui_events.push_back(Event::new(Action::GetEmbeds, "embed".to_string()))
                 }
                 Input {
                     key: Key::Enter, ..
@@ -72,6 +80,20 @@ fn main() -> Result<()> {
 
             while let Some(event) = state.pop_event() {
                 match event.action {
+                    Action::GetChatHistory => {
+                        let messages = api_caller.get_chat_history().unwrap();
+                        messages
+                            .iter()
+                            .for_each(|msg| DGG::parse_ws_message(msg, &mut state))
+                    }
+                    Action::GetEmbeds => {
+                        let embeds = api_caller.get_last_embeds().unwrap();
+                        state.add_debug(embeds[0].to_string());
+                        state.add_debug(embeds[1].to_string());
+                        state.add_debug(embeds[2].to_string());
+                        state.add_debug(embeds[3].to_string());
+                        state.add_debug(embeds[4].to_string());
+                    }
                     Action::RecvMsg => {
                         let msg = Message::from_json(&event.body).unwrap();
                         state.add_message(msg);
