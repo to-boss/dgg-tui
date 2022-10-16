@@ -48,8 +48,29 @@ pub struct Embed {
     pub title: String,
 }
 
+impl Embed {
+    pub fn real_link(&self) -> String {
+        let index = self.link.find("/").unwrap();
+        let prefix = "https://www.";
+        let fix = match self.platform.as_str() {
+            "twitch" => "twitch.tv",
+            "youtube" => "youtube.com",
+            _ => "ERROR: matching real_link()",
+        };
+        let suffix = &self.link[index..];
+        let real_link = format!("{}{}{}", prefix, fix, suffix);
+        real_link
+    }
+}
+
 impl Display for Embed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.channel, self.title)
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.timestamp,
+            self.channel,
+            self.real_link()
+        )
     }
 }

@@ -28,8 +28,8 @@ fn main() -> Result<()> {
     let api_caller = ApiCaller::new();
     let emotes = EmoteList::new();
     let mut text_area = TextArea::default();
-
     let mut ui_events: VecDeque<Event> = VecDeque::new();
+
     ui_events.push_back(Event::new(
         Action::GetChatHistory,
         "chat_history".to_string(),
@@ -41,6 +41,7 @@ fn main() -> Result<()> {
             Err(_) => break,
         }
 
+        // Hnandle Input
         if let Ok(true) = event::poll(Duration::default()) {
             match event::read()? {
                 event::Event::Key(key_event) => {
@@ -77,12 +78,13 @@ fn main() -> Result<()> {
             }
         }
 
+        // Handle Events
         if let Ok(mut state) = dgg_state.try_lock() {
             state.push_ui_events(&mut ui_events);
 
             while let Some(event) = state.pop_event() {
                 let scroll = state.windows.get(WindowType::Chat).scroll;
-                state.add_debug(format!("{}: {}", event, scroll));
+                // state.add_debug(format!("{}: {}", event, scroll));
                 match event.action {
                     Action::QuitApp => break 'main,
                     Action::RecvMsg => {

@@ -273,62 +273,52 @@ fn render_chat<B: Backend>(
 
 // Deals with splitting the chunks into the right size for the different windows
 fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
+    fn get_chat_chunks(chunk: Rect) -> (Rect, Rect) {
+        let windows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Min(3), Constraint::Length(3)])
+            .split(chunk);
+        (windows[0], windows[1])
+    }
+    fn get_userlist_chunks(chunk: Rect) -> (Rect, Rect) {
+        let windows = Layout::default()
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+            .direction(Direction::Horizontal)
+            .split(chunk);
+        (windows[0], windows[1])
+    }
+    fn get_debug_chunks(chunk: Rect) -> (Rect, Rect) {
+        let windows = Layout::default()
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .direction(Direction::Vertical)
+            .split(chunk);
+        (windows[0], windows[1])
+    }
+
     let area = *size;
     let debug_active = windows.get(WindowType::Debug).active;
     let userlist_active = windows.get(WindowType::UserList).active;
 
-    let mut constraints = vec![Constraint::Percentage(100)];
-    let mut chunks = Layout::default()
-        .constraints(constraints)
-        .direction(Direction::Horizontal)
-        .split(area);
-
-    let mut chat = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
-        .split(chunks[0]);
-
+    // chat, userlist and debug
     if debug_active == true && userlist_active == true {
-        constraints = vec![Constraint::Percentage(40), Constraint::Percentage(60)];
-        chunks = Layout::default()
-            .constraints(constraints)
-            .direction(Direction::Vertical)
-            .split(area);
-        let users = Layout::default()
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
-            .direction(Direction::Horizontal)
-            .split(chunks[1]);
-        chat = Layout::default()
-            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
-            .direction(Direction::Vertical)
-            .split(users[0]);
-        return vec![chat[0], chat[1], chunks[0], users[1]];
+        let (debug, rest_window) = get_debug_chunks(area);
+        let (rest_window, user_list) = get_userlist_chunks(rest_window);
+        let (chat, chat_input) = get_chat_chunks(rest_window);
+        return vec![chat, chat_input, debug, user_list];
+    // only chat and debug
     } else if debug_active {
-        constraints = vec![Constraint::Percentage(40), Constraint::Percentage(60)];
-        chunks = Layout::default()
-            .constraints(constraints)
-            .direction(Direction::Vertical)
-            .split(area);
-        chat = Layout::default()
-            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
-            .direction(Direction::Vertical)
-            .split(chunks[1]);
-        return vec![chat[0], chat[1], chunks[0]];
+        let (debug, rest_window) = get_debug_chunks(area);
+        let (chat, chat_input) = get_chat_chunks(rest_window);
+        return vec![chat, chat_input, debug];
+    // only chat and userlist
     } else if userlist_active {
-        constraints = vec![Constraint::Percentage(80), Constraint::Percentage(20)];
-        chunks = Layout::default()
-            .constraints(constraints)
-            .direction(Direction::Horizontal)
-            .split(area);
-
-        chat = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(90), Constraint::Percentage(10)])
-            .split(chunks[0]);
-        return vec![chat[0], chat[1], chunks[1]];
+        let (rest_window, user_list) = get_userlist_chunks(area);
+        let (chat, chat_input) = get_chat_chunks(rest_window);
+        return vec![chat, chat_input, user_list];
     }
-
-    return vec![chat[0], chat[1]];
+    // only chat
+    let (chat, chat_input) = get_chat_chunks(area);
+    return vec![chat, chat_input];
 }
 
 fn scroll_to_bottom(items: &mut Vec<ListItem>, height: usize) {
@@ -341,7 +331,7 @@ fn scroll_to_bottom(items: &mut Vec<ListItem>, height: usize) {
 fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     let height = (chunk.height) as usize;
     let start = if list_len > height {
-        list_len - height - 2 // - 2 because borders
+        list_len - height - 2 // - 2 because of borders
     } else {
         0
     };
