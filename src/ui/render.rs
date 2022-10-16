@@ -5,26 +5,23 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    fmt::format,
     io::{self, Result},
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
 use tui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem},
     Frame,
 };
 use tui_textarea::TextArea;
 
 use crate::chat::{
-    self,
     features::Feature,
-    state::{State, Window, WindowList, WindowType},
-    user,
+    state::{State, WindowList, WindowType},
 };
 
 use super::{
@@ -68,7 +65,6 @@ pub fn draw<B: Backend>(
     let state = state.lock().unwrap();
     let debug_active = state.windows.get(WindowType::Debug).active;
     let userlist_active = state.windows.get(WindowType::UserList).active;
-
     let size = f.size();
     let chunks = get_chunks(&size, &state.windows);
 
@@ -83,6 +79,13 @@ pub fn draw<B: Backend>(
 
     // Always render chat and chat_input
     render_chat(f, chunks[0], &state, &emotes);
+
+    text_area.set_block(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL)
+            .title("Send"),
+    );
     f.render_widget(text_area.widget(), chunks[1]);
 
     Ok(())
@@ -221,7 +224,6 @@ fn render_chat<B: Backend>(
             // Handle Line Wraps
             let full_line = format!("{}: {}", name, pm);
             let lines = textwrap::wrap(&full_line, (chunk.width - 2) as usize);
-
             let line = Spans::from(vec![
                 Span::styled(format!("{}", name), name_style.bg(bg_color)),
                 Span::styled(": ", Style::default().bg(bg_color)),
@@ -238,7 +240,6 @@ fn render_chat<B: Backend>(
                     Span::styled(format!("{}", name), name_style.bg(bg_color)),
                     Span::styled(format!("{}", pm), message_style.bg(bg_color)),
                 ]);
-
                 let mut extra_lines: Vec<ListItem> = lines
                     .iter()
                     .skip(1)
@@ -246,8 +247,10 @@ fn render_chat<B: Backend>(
                         ListItem::new(Span::styled(format!("{}", l), message_style.bg(bg_color)))
                     })
                     .collect();
+
                 spans.push(ListItem::new(line));
                 spans.append(&mut extra_lines);
+
                 spans
             } else {
                 vec![ListItem::new(line)]
@@ -268,6 +271,7 @@ fn render_chat<B: Backend>(
     f.render_widget(chat_messages, chunk);
 }
 
+// Deals with splitting the chunks into the right size for the different windows
 fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
     let area = *size;
     let debug_active = windows.get(WindowType::Debug).active;
@@ -285,7 +289,7 @@ fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
         .split(chunks[0]);
 
     if debug_active == true && userlist_active == true {
-        constraints = vec![Constraint::Percentage(50), Constraint::Percentage(50)];
+        constraints = vec![Constraint::Percentage(40), Constraint::Percentage(60)];
         chunks = Layout::default()
             .constraints(constraints)
             .direction(Direction::Vertical)
@@ -300,7 +304,7 @@ fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
             .split(users[0]);
         return vec![chat[0], chat[1], chunks[0], users[1]];
     } else if debug_active {
-        constraints = vec![Constraint::Percentage(20), Constraint::Percentage(80)];
+        constraints = vec![Constraint::Percentage(40), Constraint::Percentage(60)];
         chunks = Layout::default()
             .constraints(constraints)
             .direction(Direction::Vertical)

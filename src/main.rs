@@ -3,7 +3,7 @@ use std::panic;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
-use crossterm::event::{self};
+use crossterm::event::{self, KeyCode};
 use dgg::chat::api::ApiCaller;
 use dgg::chat::event::Event;
 use dgg::chat::state::WindowType;
@@ -11,10 +11,8 @@ use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render::{close, draw, init};
-use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders};
 use tui::{backend::CrosstermBackend, Terminal};
-use tui_textarea::{Input, Key, TextArea};
+use tui_textarea::TextArea;
 
 fn main() -> Result<()> {
     custom_panic();
@@ -27,16 +25,9 @@ fn main() -> Result<()> {
     init()?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).unwrap();
-    let emotes = EmoteList::new();
     let api_caller = ApiCaller::new();
-
+    let emotes = EmoteList::new();
     let mut text_area = TextArea::default();
-    text_area.set_block(
-        Block::default()
-            .style(Style::default().bg(Color::Black))
-            .borders(Borders::ALL)
-            .title("Send"),
-    );
 
     let mut ui_events: VecDeque<Event> = VecDeque::new();
     ui_events.push_back(Event::new(
@@ -51,36 +42,38 @@ fn main() -> Result<()> {
         }
 
         if let Ok(true) = event::poll(Duration::default()) {
-            match crossterm::event::read()?.into() {
-                Input { key: Key::Esc, .. } => {
-                    ui_events.push_back(Event::new(Action::QuitApp, "quit".to_string()))
+            match event::read()? {
+                event::Event::Key(key_event) => {
+                    let res =
+                        match key_event.code {
+                            KeyCode::Esc => {
+                                ui_events.push_back(Event::new(Action::QuitApp, "quit".to_string()))
+                            }
+                            KeyCode::F(1) => ui_events
+                                .push_back(Event::new(Action::ChangeUserList, "users".to_string())),
+                            KeyCode::F(2) => ui_events
+                                .push_back(Event::new(Action::ChangeDebug, "debug".to_string())),
+                            KeyCode::F(3) => ui_events
+                                .push_back(Event::new(Action::GetEmbeds, "embed".to_string())),
+                            KeyCode::PageUp => ui_events
+                                .push_back(Event::new(Action::ScrollUp, "MouseUp".to_string())),
+                            KeyCode::PageDown => ui_events
+                                .push_back(Event::new(Action::ScrollDown, "MouseDown".to_string())),
+                            KeyCode::Enter => {
+                                let msg = text_area.lines()[0].to_string();
+                                let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
+                                sender.send(message_to_send).unwrap();
+                                text_area.delete_line_by_head();
+                            }
+                            _ => (),
+                        };
+                    // If we dont use any of these KeyCodes, send them to the text_area
+                    if res == () {
+                        text_area.input(key_event);
+                    }
                 }
-                Input { key: Key::F(1), .. } => {
-                    ui_events.push_back(Event::new(Action::ChangeUserList, "users".to_string()))
-                }
-                Input { key: Key::F(2), .. } => {
-                    ui_events.push_back(Event::new(Action::ChangeDebug, "debug".to_string()))
-                }
-                Input { key: Key::F(3), .. } => {
-                    ui_events.push_back(Event::new(Action::GetEmbeds, "embed".to_string()))
-                }
-                Input {
-                    key: Key::PageUp, ..
-                } => ui_events.push_back(Event::new(Action::ScrollUp, "MouseUp".to_string())),
-                Input {
-                    key: Key::PageDown, ..
-                } => ui_events.push_back(Event::new(Action::ScrollDown, "MouseDown".to_string())),
-                Input {
-                    key: Key::Enter, ..
-                } => {
-                    let msg = text_area.lines()[0].to_string();
-                    let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
-                    sender.send(message_to_send).unwrap();
-                    text_area.delete_line_by_head();
-                }
-                input => {
-                    text_area.input(input);
-                }
+                event::Event::Mouse(_) => (),
+                _ => (),
             }
         }
 
