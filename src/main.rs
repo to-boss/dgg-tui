@@ -3,7 +3,7 @@ use std::panic;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
-use crossterm::event::{self, KeyCode};
+use crossterm::event::{self, KeyCode, MouseEventKind};
 use dgg::chat::api::ApiCaller;
 use dgg::chat::event::Event;
 use dgg::chat::state::WindowType;
@@ -11,6 +11,7 @@ use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render::{close, draw, init};
+use tui::style::Style;
 use tui::{backend::CrosstermBackend, Terminal};
 use tui_textarea::TextArea;
 
@@ -27,13 +28,12 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend).unwrap();
     let api_caller = ApiCaller::new();
     let emotes = EmoteList::new();
-    let mut text_area = TextArea::default();
-    let mut ui_events: VecDeque<Event> = VecDeque::new();
 
-    ui_events.push_back(Event::new(
-        Action::GetChatHistory,
-        "chat_history".to_string(),
-    ));
+    let mut text_area = TextArea::default();
+    text_area.set_cursor_line_style(Style::default());
+
+    let mut ui_events: VecDeque<Event> = VecDeque::new();
+    ui_events.push_back(Event::new(Action::GetChatHistory, String::new()));
 
     'main: loop {
         match terminal.draw(|f| draw(f, &dgg_state, &emotes, &mut text_area).unwrap()) {
@@ -45,35 +45,48 @@ fn main() -> Result<()> {
         if let Ok(true) = event::poll(Duration::default()) {
             match event::read()? {
                 event::Event::Key(key_event) => {
-                    let res =
-                        match key_event.code {
-                            KeyCode::Esc => {
-                                ui_events.push_back(Event::new(Action::QuitApp, "quit".to_string()))
-                            }
-                            KeyCode::F(1) => ui_events
-                                .push_back(Event::new(Action::ChangeUserList, "users".to_string())),
-                            KeyCode::F(2) => ui_events
-                                .push_back(Event::new(Action::ChangeDebug, "debug".to_string())),
-                            KeyCode::F(3) => ui_events
-                                .push_back(Event::new(Action::GetEmbeds, "embed".to_string())),
-                            KeyCode::PageUp => ui_events
-                                .push_back(Event::new(Action::ScrollUp, "MouseUp".to_string())),
-                            KeyCode::PageDown => ui_events
-                                .push_back(Event::new(Action::ScrollDown, "MouseDown".to_string())),
-                            KeyCode::Enter => {
-                                let msg = text_area.lines()[0].to_string();
-                                let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
-                                sender.send(message_to_send).unwrap();
-                                text_area.delete_line_by_head();
-                            }
-                            _ => (),
-                        };
+                    let res = match key_event.code {
+                        KeyCode::Esc => {
+                            ui_events.push_back(Event::new(Action::QuitApp, String::new()))
+                        }
+                        KeyCode::F(1) => {
+                            ui_events.push_back(Event::new(Action::ChangeUserList, String::new()))
+                        }
+                        KeyCode::F(2) => {
+                            ui_events.push_back(Event::new(Action::ChangeDebug, String::new()))
+                        }
+                        KeyCode::F(3) => {
+                            ui_events.push_back(Event::new(Action::GetEmbeds, String::new()))
+                        }
+                        KeyCode::PageUp => {
+                            ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
+                        }
+                        KeyCode::PageDown => {
+                            ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
+                        }
+                        KeyCode::Enter => {
+                            let msg = text_area.lines()[0].to_string();
+                            let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
+                            sender.send(message_to_send).unwrap();
+                            text_area.delete_line_by_head();
+                        }
+                        _ => (),
+                    };
                     // If we dont use any of these KeyCodes, send them to the text_area
                     if res == () {
-                        text_area.input(key_event);
+                        text_area.input_without_shortcuts(key_event);
                     }
                 }
-                event::Event::Mouse(_) => (),
+                event::Event::Mouse(mouse_event) => match mouse_event.kind {
+                    MouseEventKind::ScrollUp => {
+                        ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
+                    }
+                    MouseEventKind::ScrollDown => {
+                        ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
+                    }
+                    _ => (),
+                },
+
                 _ => (),
             }
         }
@@ -84,7 +97,7 @@ fn main() -> Result<()> {
 
             while let Some(event) = state.pop_event() {
                 let scroll = state.windows.get(WindowType::Chat).scroll;
-                // state.add_debug(format!("{}: {}", event, scroll));
+                state.add_debug(format!("{}: {}", event, scroll));
                 match event.action {
                     Action::QuitApp => break 'main,
                     Action::RecvMsg => {

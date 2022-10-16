@@ -1,50 +1,51 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{fmt::Display, io::Error};
+use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Message {
-    pub name: String,
-    pub features: Vec<String>,
-    pub timestamp: u64,
+    #[serde(rename(deserialize = "data"))]
     pub message: String,
+    pub features: Vec<String>,
+    #[serde(rename(deserialize = "nick"))]
+    pub name: String,
+    #[serde(with = "time::serde::timestamp")]
+    pub timestamp: OffsetDateTime,
 }
 
 impl Message {
     pub fn from_json(json: &str) -> Result<Message, Error> {
-        let v: Value = serde_json::from_str(json)?;
-
-        let name = v["nick"].as_str().unwrap().to_string();
-        let features = v["features"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|f| f.as_str().unwrap().to_string())
-            .collect();
-        let timestamp = v["timestamp"].as_u64().unwrap();
-        let message = v["data"].as_str().unwrap().to_string();
-
-        Ok(Message {
-            name,
-            features,
-            timestamp,
-            message,
-        })
+        let m: Message = serde_json::from_str(json)?;
+        Ok(m)
     }
 
     pub fn from(name: String, message: String) -> Message {
         Message {
             name,
             features: Vec::new(),
-            timestamp: 0,
+            timestamp: OffsetDateTime::now_utc(),
             message,
+        }
+    }
+
+    pub fn get_timestamp_str(&self) -> String {
+        let hour = self.timestamp.hour();
+        let minutes = self.timestamp.minute();
+        if hour < 10 && minutes < 10 {
+            format!("0{}:0{}", hour, minutes)
+        } else if hour < 10 {
+            format!("0{}:{}", hour, minutes)
+        } else if minutes < 10 {
+            format!("{}:0{}", hour, minutes)
+        } else {
+            format!("{}:{}", hour, minutes)
         }
     }
 }
 
 impl Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.message)
+        write!(f, "[{}] {}: {}", self.timestamp, self.name, self.message)
     }
 }
 

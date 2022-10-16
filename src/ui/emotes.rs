@@ -27,8 +27,12 @@ impl EmoteList {
             emote: "🐠",
         });
         emotes.push(Emote {
+            name: "GRUG",
+            emote: "🦍",
+        });
+        emotes.push(Emote {
             name: "melW",
-            emote: "🙍‍♀️",
+            emote: "🙍",
         });
         emotes.push(Emote {
             name: "MMMM",
@@ -100,7 +104,7 @@ impl EmoteList {
         });
         emotes.push(Emote {
             name: "Derpstiny",
-            emote: "😵‍💫",
+            emote: "😵",
         });
         emotes.push(Emote {
             name: "SpookerZ",
@@ -168,11 +172,11 @@ impl EmoteList {
         });
         emotes.push(Emote {
             name: "AngelThump",
-            emote: "🕊️",
+            emote: "🌞",
         });
         emotes.push(Emote {
             name: "MLADY",
-            emote: "🕵️‍♂️",
+            emote: "️🥷",
         });
         emotes.push(Emote {
             name: "pepeW",

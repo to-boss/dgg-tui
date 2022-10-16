@@ -12,7 +12,7 @@ use std::{
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem},
     Frame,
@@ -82,7 +82,7 @@ pub fn draw<B: Backend>(
 
     text_area.set_block(
         Block::default()
-            .style(Style::default().bg(Color::Black))
+            .style(Style::default().bg(Color::Black).fg(Color::White))
             .borders(Borders::ALL)
             .title("Send"),
     );
@@ -178,6 +178,29 @@ fn render_chat<B: Backend>(
     state: &MutexGuard<State>,
     emotes: &EmoteList,
 ) {
+    fn render_chat_line<'a>(
+        name: &str,
+        pm: &str,
+        timestamp: &str,
+        bg_color: Color,
+        name_style: &Style,
+        message_style: &Style,
+    ) -> Spans<'a> {
+        Spans::from(vec![
+            Span::styled(format!("[{}] ", timestamp), Style::default()),
+            Span::styled(
+                format!("{}", name),
+                name_style.bg(bg_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                ": ",
+                Style::default()
+                    .bg(bg_color)
+                    .remove_modifier(Modifier::BOLD),
+            ),
+            Span::styled(format!("{}", pm), message_style.bg(bg_color)),
+        ])
+    }
     // this is the absolute max of messages we can render
     //  we need to update this later because of line wraps!
     let (height, start) = get_height_and_start(chunk, state.messages.len());
@@ -187,9 +210,11 @@ fn render_chat<B: Backend>(
         .map(|m| {
             let name = m.name.to_string();
             let message_style = Style::default().fg(Color::White);
+            let ts = m.get_timestamp_str();
 
             // Replace Emote Strings in Message
             let pm = parse_emotes(m.message.to_string(), emotes);
+            // let pm = m.message.to_string();
 
             // Handle Name
             let pf = parse_flair(&m.features);
@@ -222,24 +247,20 @@ fn render_chat<B: Backend>(
             }
 
             // Handle Line Wraps
-            let full_line = format!("{}: {}", name, pm);
+            let full_line = format!("[{}] {}: {}", ts, name, pm);
             let lines = textwrap::wrap(&full_line, (chunk.width - 2) as usize);
-            let line = Spans::from(vec![
-                Span::styled(format!("{}", name), name_style.bg(bg_color)),
-                Span::styled(": ", Style::default().bg(bg_color)),
-                Span::styled(format!("{}", pm), message_style.bg(bg_color)),
-            ]);
+            let first_line_length = lines[0].len() - 8 - name.len() - 2; // "[11:11] name: ";
+            let line = render_chat_line(
+                &name,
+                &pm[..first_line_length],
+                &ts,
+                bg_color,
+                &name_style,
+                &message_style,
+            );
 
             if lines.len() > 1 {
-                let index_whitespace = lines[0].find(" ").unwrap() - 1;
-                let name = &lines[0][0..index_whitespace];
-                let pm = &lines[0][index_whitespace..];
                 let mut spans = Vec::with_capacity(lines.len());
-
-                let line = Spans::from(vec![
-                    Span::styled(format!("{}", name), name_style.bg(bg_color)),
-                    Span::styled(format!("{}", pm), message_style.bg(bg_color)),
-                ]);
                 let mut extra_lines: Vec<ListItem> = lines
                     .iter()
                     .skip(1)
