@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 pub struct Event {
     pub action: Action,
     pub body: String,
@@ -10,13 +10,22 @@ impl Event {
     }
 }
 
+impl Display for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: {}", self.action, self.body)
+    }
+}
+
+#[derive(Debug)]
 pub enum Action {
+    QuitApp,
+    ScrollUp,
+    ScrollDown,
     GetChatHistory,
     GetEmbeds,
     ChangeDebug,
     ChangeUserList,
     RecvMsg,
-    SendMsg,
     UserJoin,
     UserQuit,
     UsersInit,

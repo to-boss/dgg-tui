@@ -5,6 +5,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
+    fmt::format,
     io::{self, Result},
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
@@ -22,7 +23,7 @@ use tui_textarea::TextArea;
 use crate::chat::{
     self,
     features::Feature,
-    state::{State, Window},
+    state::{State, Window, WindowList, WindowType},
     user,
 };
 
@@ -65,8 +66,8 @@ pub fn draw<B: Backend>(
     text_area: &mut TextArea,
 ) -> Result<()> {
     let state = state.lock().unwrap();
-    let debug_active = state.windows[0].active;
-    let userlist_active = state.windows[1].active;
+    let debug_active = state.windows.get(WindowType::Debug).active;
+    let userlist_active = state.windows.get(WindowType::UserList).active;
 
     let size = f.size();
     let chunks = get_chunks(&size, &state.windows);
@@ -88,35 +89,53 @@ pub fn draw<B: Backend>(
 }
 
 fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
-    let debug_block = Block::default()
-        .style(Style::default().bg(Color::Black))
-        .borders(Borders::ALL)
-        .title("Debugs");
+    let (height, start) = get_height_and_start(chunk, state.debugs.len());
 
-    let max_items = (chunk.height - 2) as usize;
-    let text: Vec<Spans> = state
-        .debugs
+    let mut items: Vec<ListItem> = state.debugs[start..]
         .iter()
-        .take(max_items)
-        .map(|line| Spans::from(Span::styled(line, Style::default().fg(Color::White))))
+        .map(|msg| {
+            let lines = textwrap::wrap(&msg, (chunk.width - 2) as usize);
+            let line = Spans::from(Span::styled(msg, Style::default().fg(Color::White)));
+
+            if lines.len() > 1 {
+                let mut spans = Vec::with_capacity(lines.len());
+                let mut extra_lines: Vec<ListItem> = lines
+                    .iter()
+                    .skip(1)
+                    .map(|l| {
+                        ListItem::new(Span::styled(
+                            format!("{}", l),
+                            Style::default().fg(Color::White),
+                        ))
+                    })
+                    .collect();
+
+                spans.push(ListItem::new(line));
+                spans.append(&mut extra_lines);
+                spans
+            } else {
+                vec![ListItem::new(line)]
+            }
+        })
+        .flatten()
         .collect();
 
-    let paragraph = Paragraph::new(text)
-        .style(Style::default().bg(Color::Black).fg(Color::White))
-        .block(debug_block)
-        .alignment(Alignment::Left)
-        .wrap(Wrap { trim: true })
-        .scroll((0, 0));
-    f.render_widget(paragraph, chunk);
+    // Scroll to bottom
+    scroll_to_bottom(&mut items, height);
+
+    let debug_messages = List::new(items).block(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL)
+            .title("Debug"),
+    );
+    f.render_widget(debug_messages, chunk);
 }
 
 fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
-    let max_items = (chunk.height - 2) as usize;
-    let items: Vec<ListItem> = state
-        .ul
-        .users
+    let (height, start) = get_height_and_start(chunk, state.ul.users.len());
+    let mut items: Vec<ListItem> = state.ul.users[start..]
         .iter()
-        .take(max_items)
         .map(|m| {
             let name = m.name.to_string();
             // Handle Name
@@ -138,12 +157,15 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<St
         })
         .collect();
 
+    scroll_to_bottom(&mut items, height);
+
     let chatter_names = List::new(items).block(
         Block::default()
             .style(Style::default().bg(Color::Black))
             .borders(Borders::ALL)
             .title(format!("{} Users", state.ul.users.len())),
     );
+
     f.render_widget(chatter_names, chunk);
 }
 
@@ -153,11 +175,12 @@ fn render_chat<B: Backend>(
     state: &MutexGuard<State>,
     emotes: &EmoteList,
 ) {
-    let max_items = (chunk.height - 2) as usize;
-    let text: Vec<Spans> = state
-        .messages
+    // this is the absolute max of messages we can render
+    //  we need to update this later because of line wraps!
+    let (height, start) = get_height_and_start(chunk, state.messages.len());
+
+    let mut items: Vec<ListItem> = state.messages[start..] // only render messages in view
         .iter()
-        .take(max_items)
         .map(|m| {
             let name = m.name.to_string();
             let message_style = Style::default().fg(Color::White);
@@ -195,33 +218,60 @@ fn render_chat<B: Backend>(
                 bg_color = Color::Rgb(10, 40, 60);
             }
 
-            Spans::from(vec![
+            // Handle Line Wraps
+            let full_line = format!("{}: {}", name, pm);
+            let lines = textwrap::wrap(&full_line, (chunk.width - 2) as usize);
+
+            let line = Spans::from(vec![
                 Span::styled(format!("{}", name), name_style.bg(bg_color)),
                 Span::styled(": ", Style::default().bg(bg_color)),
-                Span::styled(format!("{} ", pm), message_style.bg(bg_color)),
-            ])
+                Span::styled(format!("{}", pm), message_style.bg(bg_color)),
+            ]);
+
+            if lines.len() > 1 {
+                let index_whitespace = lines[0].find(" ").unwrap() - 1;
+                let name = &lines[0][0..index_whitespace];
+                let pm = &lines[0][index_whitespace..];
+                let mut spans = Vec::with_capacity(lines.len());
+
+                let line = Spans::from(vec![
+                    Span::styled(format!("{}", name), name_style.bg(bg_color)),
+                    Span::styled(format!("{}", pm), message_style.bg(bg_color)),
+                ]);
+
+                let mut extra_lines: Vec<ListItem> = lines
+                    .iter()
+                    .skip(1)
+                    .map(|l| {
+                        ListItem::new(Span::styled(format!("{}", l), message_style.bg(bg_color)))
+                    })
+                    .collect();
+                spans.push(ListItem::new(line));
+                spans.append(&mut extra_lines);
+                spans
+            } else {
+                vec![ListItem::new(line)]
+            }
         })
+        .flatten()
         .collect();
 
-    let chat_block = Block::default()
-        .style(Style::default().bg(Color::Black))
-        .borders(Borders::ALL)
-        .title("DGG-Chat");
+    // Scroll to bottom
+    scroll_to_bottom(&mut items, height);
 
-    let chat_messages = Paragraph::new(text)
-        .style(Style::default().bg(Color::Black))
-        .block(chat_block)
-        .alignment(Alignment::Left)
-        .wrap(Wrap { trim: true })
-        .scroll((0, 0));
-
+    let chat_messages = List::new(items).block(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL)
+            .title("DGG-Chat"),
+    );
     f.render_widget(chat_messages, chunk);
 }
 
-fn get_chunks(size: &Rect, windows: &Vec<Window>) -> Vec<Rect> {
+fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
     let area = *size;
-    let debug_active = windows[0].active;
-    let userlist_active = windows[1].active;
+    let debug_active = windows.get(WindowType::Debug).active;
+    let userlist_active = windows.get(WindowType::UserList).active;
 
     let mut constraints = vec![Constraint::Percentage(100)];
     let mut chunks = Layout::default()
@@ -275,4 +325,22 @@ fn get_chunks(size: &Rect, windows: &Vec<Window>) -> Vec<Rect> {
     }
 
     return vec![chat[0], chat[1]];
+}
+
+fn scroll_to_bottom(items: &mut Vec<ListItem>, height: usize) {
+    if items.len() > height {
+        let diff = items.len() - height + 2;
+        items.drain(0..diff);
+    }
+}
+
+fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
+    let height = (chunk.height) as usize;
+    let start = if list_len > height {
+        list_len - height - 2 // - 2 because borders
+    } else {
+        0
+    };
+
+    (height, start)
 }

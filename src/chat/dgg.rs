@@ -18,7 +18,7 @@ pub struct DGG {
 }
 
 impl DGG {
-    pub fn new(max_massages: usize) -> (Self, Sender<String>) {
+    pub fn new(max_massages: u16) -> (Self, Sender<String>) {
         let name = String::from("onlyclose");
         let token =
             String::from("251rLOxzq4M9GSsW52DVIZVFvGqDhOSP4wG7pMkTYJO0VH5l32FKQoQOuzuduhGt");

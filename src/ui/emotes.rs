@@ -76,7 +76,7 @@ impl EmoteList {
         });
         emotes.push(Emote {
             name: "FeelsWeirdMan",
-            emote: "🙎‍♂️",
+            emote: "🤨",
         });
         emotes.push(Emote {
             name: "Clap",
@@ -116,7 +116,7 @@ impl EmoteList {
         });
         emotes.push(Emote {
             name: "Shrugstiny",
-            emote: "💁‍♂️",
+            emote: "️🤷",
         });
         emotes.push(Emote {
             name: "monkaS",

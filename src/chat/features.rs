@@ -28,6 +28,7 @@ pub enum Feature {
     Twitch,
     Eve,
     Gym,
+    League,
 }
 
 impl FromStr for Feature {
@@ -69,6 +70,7 @@ impl FromStr for Feature {
             "flair27" => Ok(Feature::White), // not sure
             "flair28" => Ok(Feature::Lawyer),
             "flair29" => Ok(Feature::Gym),
+            "flair30" => Ok(Feature::League),
             _ => panic!("ParserError: {}", s),
         }
     }

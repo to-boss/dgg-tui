@@ -6,6 +6,7 @@ use std::{io::stdout, io::Result, thread};
 use crossterm::event::{self};
 use dgg::chat::api::ApiCaller;
 use dgg::chat::event::Event;
+use dgg::chat::state::WindowType;
 use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
@@ -43,7 +44,7 @@ fn main() -> Result<()> {
         "chat_history".to_string(),
     ));
 
-    loop {
+    'main: loop {
         match terminal.draw(|f| draw(f, &dgg_state, &emotes, &mut text_area).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
@@ -51,7 +52,9 @@ fn main() -> Result<()> {
 
         if let Ok(true) = event::poll(Duration::default()) {
             match crossterm::event::read()?.into() {
-                Input { key: Key::Esc, .. } => break,
+                Input { key: Key::Esc, .. } => {
+                    ui_events.push_back(Event::new(Action::QuitApp, "quit".to_string()))
+                }
                 Input { key: Key::F(1), .. } => {
                     ui_events.push_back(Event::new(Action::ChangeUserList, "users".to_string()))
                 }
@@ -61,6 +64,12 @@ fn main() -> Result<()> {
                 Input { key: Key::F(3), .. } => {
                     ui_events.push_back(Event::new(Action::GetEmbeds, "embed".to_string()))
                 }
+                Input {
+                    key: Key::PageUp, ..
+                } => ui_events.push_back(Event::new(Action::ScrollUp, "MouseUp".to_string())),
+                Input {
+                    key: Key::PageDown, ..
+                } => ui_events.push_back(Event::new(Action::ScrollDown, "MouseDown".to_string())),
                 Input {
                     key: Key::Enter, ..
                 } => {
@@ -79,7 +88,18 @@ fn main() -> Result<()> {
             state.push_ui_events(&mut ui_events);
 
             while let Some(event) = state.pop_event() {
+                let scroll = state.windows.get(WindowType::Chat).scroll;
+                state.add_debug(format!("{}: {}", event, scroll));
                 match event.action {
+                    Action::QuitApp => break 'main,
+                    Action::RecvMsg => {
+                        let msg = Message::from_json(&event.body).unwrap();
+                        state.add_message(msg);
+                    }
+                    Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
+                    Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),
+                    Action::ScrollUp => state.windows.get_mut(WindowType::Chat).scroll(-1),
+                    Action::ScrollDown => state.windows.get_mut(WindowType::Chat).scroll(1),
                     Action::GetChatHistory => {
                         let messages = api_caller.get_chat_history().unwrap();
                         messages
@@ -94,13 +114,6 @@ fn main() -> Result<()> {
                         state.add_debug(embeds[3].to_string());
                         state.add_debug(embeds[4].to_string());
                     }
-                    Action::RecvMsg => {
-                        let msg = Message::from_json(&event.body).unwrap();
-                        state.add_message(msg);
-                    }
-                    Action::SendMsg => {}
-                    Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
-                    Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),
                     Action::UsersInit => {
                         let mut ul = UserList::from_json(&event.body).unwrap();
                         let msg = Message::from(
@@ -126,11 +139,13 @@ fn main() -> Result<()> {
                     Action::Err => (),
                     Action::Refresh => (),
                     Action::Binary => (),
-                    Action::ChangeUserList => state.windows[1].flip(),
-                    Action::ChangeDebug => state.windows[0].flip(),
+                    Action::ChangeUserList => state.windows.get_mut(WindowType::UserList).flip(),
+                    Action::ChangeDebug => state.windows.get_mut(WindowType::Debug).flip(),
                 }
             }
         };
+
+        thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
     }
 
     close()?;
