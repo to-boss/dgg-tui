@@ -1,10 +1,7 @@
-use std::{error::Error, fmt::Display};
-
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use super::message::Message;
+use std::{error::Error, fmt::Display};
+use time::OffsetDateTime;
 
 pub struct ApiCaller {
     client: Client,
@@ -36,6 +33,54 @@ impl ApiCaller {
             .unwrap();
         let messages: Vec<String> = serde_json::from_str(&res)?;
         Ok(messages)
+    }
+
+    pub fn stalk(&self, username: String) -> Result<Vec<Stalk>, Box<dyn Error>> {
+        let res = self
+            .client
+            .get(format!("https://polecat.me/api/stalk/{}?size=10", username))
+            .send()?
+            .text()
+            .unwrap();
+        let messages: Vec<Stalk> = serde_json::from_str(&res)?;
+        Ok(messages)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Stalk {
+    #[serde(with = "time::serde::timestamp", rename(deserialize = "date"))]
+    pub timestamp: OffsetDateTime,
+    pub flairs: String,
+    pub nick: String,
+    pub text: String,
+}
+
+impl Stalk {
+    pub fn get_timestamp_str(&self) -> String {
+        let hour = self.timestamp.hour();
+        let minutes = self.timestamp.minute();
+        if hour < 10 && minutes < 10 {
+            format!("0{}:0{}", hour, minutes)
+        } else if hour < 10 {
+            format!("0{}:{}", hour, minutes)
+        } else if minutes < 10 {
+            format!("{}:0{}", hour, minutes)
+        } else {
+            format!("{}:{}", hour, minutes)
+        }
+    }
+}
+
+impl Display for Stalk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}] {}: {}",
+            self.get_timestamp_str(),
+            self.nick,
+            self.text
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::panic;
+use std::thread::current;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
@@ -11,6 +12,7 @@ use dgg::chat::user::{User, UserList};
 use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render::{close, draw, init};
+use dgg::ui::suggester::Suggestor;
 use tui::style::Style;
 use tui::{backend::CrosstermBackend, Terminal};
 use tui_textarea::TextArea;
@@ -27,7 +29,7 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).unwrap();
     let api_caller = ApiCaller::new();
-    let emotes = EmoteList::new();
+    let emote_list = EmoteList::new();
 
     let mut text_area = TextArea::default();
     text_area.set_cursor_line_style(Style::default());
@@ -35,13 +37,15 @@ fn main() -> Result<()> {
     let mut ui_events: VecDeque<Event> = VecDeque::new();
     ui_events.push_back(Event::new(Action::GetChatHistory, String::new()));
 
+    let mut suggestor = Suggestor::new(&emote_list);
+
     'main: loop {
-        match terminal.draw(|f| draw(f, &dgg_state, &emotes, &mut text_area).unwrap()) {
+        match terminal.draw(|f| draw(f, &dgg_state, &emote_list, &mut text_area).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
         }
 
-        // Hnandle Input
+        // Handle Input
         if let Ok(true) = event::poll(Duration::default()) {
             match event::read()? {
                 event::Event::Key(key_event) => {
@@ -58,6 +62,10 @@ fn main() -> Result<()> {
                         KeyCode::F(3) => {
                             ui_events.push_back(Event::new(Action::GetEmbeds, String::new()))
                         }
+                        KeyCode::F(4) => ui_events.push_back(Event::new(
+                            Action::Stalk(String::from("Destiny")),
+                            String::new(),
+                        )),
                         KeyCode::PageUp => {
                             ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
                         }
@@ -70,11 +78,22 @@ fn main() -> Result<()> {
                             sender.send(message_to_send).unwrap();
                             text_area.delete_line_by_head();
                         }
+                        KeyCode::Tab => {
+                            text_area.insert_str(suggestor.consume());
+                            ()
+                        }
+                        KeyCode::BackTab => suggestor.pop(),
+
                         _ => (),
                     };
                     // If we dont use any of these KeyCodes, send them to the text_area
                     if res == () {
                         text_area.input_without_shortcuts(key_event);
+                        match key_event.code {
+                            KeyCode::Char(' ') => suggestor.clear_word(),
+                            KeyCode::Char(c) => suggestor.push(c),
+                            _ => (),
+                        }
                     }
                 }
                 event::Event::Mouse(mouse_event) => match mouse_event.kind {
@@ -97,7 +116,8 @@ fn main() -> Result<()> {
 
             while let Some(event) = state.pop_event() {
                 let scroll = state.windows.get(WindowType::Chat).scroll;
-                state.add_debug(format!("{}: {}", event, scroll));
+                //state.add_debug(format!("{}: {}", event, scroll));
+                // state.add_debug(format!("{:?}", suggestor.suggestions));
                 match event.action {
                     Action::QuitApp => break 'main,
                     Action::RecvMsg => {
@@ -121,6 +141,14 @@ fn main() -> Result<()> {
                         state.add_debug(embeds[2].to_string());
                         state.add_debug(embeds[3].to_string());
                         state.add_debug(embeds[4].to_string());
+                    }
+                    Action::Stalk(name) => {
+                        let messages = api_caller.stalk(name).unwrap();
+                        state.add_debug(messages[0].to_string());
+                        state.add_debug(messages[1].to_string());
+                        state.add_debug(messages[2].to_string());
+                        state.add_debug(messages[3].to_string());
+                        state.add_debug(messages[4].to_string());
                     }
                     Action::UsersInit => {
                         let mut ul = UserList::from_json(&event.body).unwrap();

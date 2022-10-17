@@ -5,22 +5,24 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    io::{self, Result},
+    io::{self, stdout, Result},
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
+use time::OffsetDateTime;
 use tui::{
-    backend::Backend,
+    backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem},
-    Frame,
+    Frame, Terminal,
 };
 use tui_textarea::TextArea;
 
 use crate::chat::{
     features::Feature,
+    message::Message,
     state::{State, WindowList, WindowType},
 };
 
@@ -59,7 +61,7 @@ pub fn get_key() -> crossterm::Result<KeyCode> {
 pub fn draw<B: Backend>(
     f: &mut Frame<B>,
     state: &Arc<Mutex<State>>,
-    emotes: &EmoteList,
+    emote_list: &EmoteList,
     text_area: &mut TextArea,
 ) -> Result<()> {
     let state = state.lock().unwrap();
@@ -78,7 +80,7 @@ pub fn draw<B: Backend>(
     }
 
     // Always render chat and chat_input
-    render_chat(f, chunks[0], &state, &emotes);
+    render_chat(f, chunks[0], &state, &emote_list);
 
     text_area.set_block(
         Block::default()
@@ -176,21 +178,24 @@ fn render_chat<B: Backend>(
     f: &mut Frame<B>,
     chunk: Rect,
     state: &MutexGuard<State>,
-    emotes: &EmoteList,
+    emote_list: &EmoteList,
 ) {
     fn render_chat_line<'a>(
         name: &str,
         pm: &str,
         timestamp: &str,
         bg_color: Color,
-        name_style: &Style,
-        message_style: &Style,
+        message_color: Color,
+        name_color: Color,
     ) -> Spans<'a> {
         Spans::from(vec![
             Span::styled(format!("[{}] ", timestamp), Style::default()),
             Span::styled(
                 format!("{}", name),
-                name_style.bg(bg_color).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(name_color)
+                    .bg(bg_color)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 ": ",
@@ -198,7 +203,10 @@ fn render_chat<B: Backend>(
                     .bg(bg_color)
                     .remove_modifier(Modifier::BOLD),
             ),
-            Span::styled(format!("{}", pm), message_style.bg(bg_color)),
+            Span::styled(
+                format!("{}", pm),
+                Style::default().fg(message_color).bg(bg_color),
+            ),
         ])
     }
     // this is the absolute max of messages we can render
@@ -209,30 +217,30 @@ fn render_chat<B: Backend>(
         .iter()
         .map(|m| {
             let name = m.name.to_string();
-            let message_style = Style::default().fg(Color::White);
             let ts = m.get_timestamp_str();
 
             // Replace Emote Strings in Message
-            let pm = parse_emotes(m.message.to_string(), emotes);
+            let pm = parse_emotes(m.message.to_string(), emote_list);
             // let pm = m.message.to_string();
 
             // Handle Name
             let pf = parse_flair(&m.features);
-            let name_style = match pf {
-                Feature::Tier1 => Style::default().fg(Color::Cyan),
-                Feature::Tier2 => Style::default().fg(Color::LightCyan),
-                Feature::Tier3 => Style::default().fg(Color::Green),
-                Feature::Tier4 => Style::default().fg(Color::Magenta),
-                Feature::Vip => Style::default().fg(Color::Rgb(230, 144, 20)),
-                Feature::Mod => Style::default().fg(Color::Yellow),
-                Feature::Broadcaster => Style::default().fg(Color::Rgb(230, 144, 20)),
-                Feature::Admin => Style::default().fg(Color::Red),
-                _ => Style::default().fg(Color::White),
+            let name_color = match pf {
+                Feature::Tier1 => Color::Cyan,
+                Feature::Tier2 => Color::LightCyan,
+                Feature::Tier3 => Color::LightGreen,
+                Feature::Tier4 => Color::Magenta,
+                Feature::Vip => Color::Rgb(230, 144, 20),
+                Feature::Mod => Color::Yellow,
+                Feature::Broadcaster => Color::Rgb(230, 144, 20),
+                Feature::Admin => Color::Red,
+                _ => Color::White,
             };
 
             // Handle Greentext
+            let mut message_color = Color::White;
             if pm.starts_with(">") {
-                message_style.fg(Color::Green);
+                message_color = Color::Green;
             }
 
             // Handle Name Hightlight own Message
@@ -249,14 +257,17 @@ fn render_chat<B: Backend>(
             // Handle Line Wraps
             let full_line = format!("[{}] {}: {}", ts, name, pm);
             let lines = textwrap::wrap(&full_line, (chunk.width - 2) as usize);
-            let first_line_length = lines[0].len() - 8 - name.len() - 2; // "[11:11] name: ";
+
+            // TODO
+            let first_line_length = lines[0].len() - 8 - name.len() - 2;
+
             let line = render_chat_line(
                 &name,
                 &pm[..first_line_length],
                 &ts,
                 bg_color,
-                &name_style,
-                &message_style,
+                message_color,
+                name_color,
             );
 
             if lines.len() > 1 {
@@ -265,7 +276,10 @@ fn render_chat<B: Backend>(
                     .iter()
                     .skip(1)
                     .map(|l| {
-                        ListItem::new(Span::styled(format!("{}", l), message_style.bg(bg_color)))
+                        ListItem::new(Span::styled(
+                            format!("{}", l),
+                            Style::default().fg(message_color).bg(bg_color),
+                        ))
                     })
                     .collect();
 
@@ -358,4 +372,29 @@ fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     };
 
     (height, start)
+}
+
+#[test]
+fn really_long_message_no_whitespace() {
+    let msg = String::from("testsadfwqrekqweoriuwqerpoiwequropiqwuroipwquropiwqeuropwiqeruwoipqruoqpiwruqpwoiruopqwiuropiqwuropqiwurqowpiruqowpiru");
+    let message = Message {
+        message: msg,
+        features: vec![],
+        name: "COCK".to_string(),
+        timestamp: OffsetDateTime::now_utc(),
+    };
+    let emote_list = EmoteList::new();
+    let backend = CrosstermBackend::new(stdout());
+    let mut terminal = Terminal::new(backend).unwrap();
+    let state = Arc::new(Mutex::new(State::new(10, "COCK".to_string())));
+    state.lock().unwrap().add_message(message);
+    let rect = Rect {
+        x: 10,
+        y: 10,
+        width: 30,
+        height: 10,
+    };
+    terminal
+        .draw(|f| render_chat(f, rect, &state.lock().unwrap(), &emote_list))
+        .unwrap();
 }
