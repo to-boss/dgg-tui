@@ -156,7 +156,6 @@ dependencies = [
  "textwrap",
  "time",
  "tui",
- "tui-textarea",
  "tungstenite",
  "url",
 ]
@@ -1096,16 +1095,6 @@ dependencies = [
  "crossterm",
  "unicode-segmentation",
  "unicode-width",
-]
-
-[[package]]
-name = "tui-textarea"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e7a086dc7ddcec25bfb9c47d5f3d85e3313c0c67eebe645d9e6b883452e56cc"
-dependencies = [
- "crossterm",
- "tui",
 ]
 
 [[package]]

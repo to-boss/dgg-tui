@@ -15,7 +15,6 @@ use dgg::ui::render::{close, draw, init};
 use dgg::ui::suggester::Suggestor;
 use tui::style::Style;
 use tui::{backend::CrosstermBackend, Terminal};
-use tui_textarea::TextArea;
 
 fn main() -> Result<()> {
     custom_panic();
@@ -31,16 +30,13 @@ fn main() -> Result<()> {
     let api_caller = ApiCaller::new();
     let emote_list = EmoteList::new();
 
-    let mut text_area = TextArea::default();
-    text_area.set_cursor_line_style(Style::default());
-
     let mut ui_events: VecDeque<Event> = VecDeque::new();
     ui_events.push_back(Event::new(Action::GetChatHistory, String::new()));
 
     let mut suggestor = Suggestor::new(&emote_list);
 
     'main: loop {
-        match terminal.draw(|f| draw(f, &dgg_state, &emote_list, &mut text_area).unwrap()) {
+        match terminal.draw(|f| draw(f, &dgg_state, &emote_list).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
         }
@@ -73,13 +69,11 @@ fn main() -> Result<()> {
                             ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
                         }
                         KeyCode::Enter => {
-                            let msg = text_area.lines()[0].to_string();
-                            let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
-                            sender.send(message_to_send).unwrap();
-                            text_area.delete_line_by_head();
+                            // let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
+                            // sender.send(message_to_send).unwrap();
                         }
                         KeyCode::Tab => {
-                            text_area.insert_str(suggestor.consume());
+                            // text_area.insert_str(suggestor.consume());
                             ()
                         }
                         KeyCode::BackTab => suggestor.pop(),
@@ -88,10 +82,15 @@ fn main() -> Result<()> {
                     };
                     // If we dont use any of these KeyCodes, send them to the text_area
                     if res == () {
-                        text_area.input_without_shortcuts(key_event);
                         match key_event.code {
-                            KeyCode::Char(' ') => suggestor.clear_word(),
-                            KeyCode::Char(c) => suggestor.push(c),
+                            KeyCode::Char(' ') => {
+                                suggestor.clear_word();
+                                ui_events.push_back(Event::new(Action::Key(' '), String::new()));
+                            }
+                            KeyCode::Char(c) => {
+                                suggestor.push(c);
+                                ui_events.push_back(Event::new(Action::Key(c), String::new()));
+                            }
                             _ => (),
                         }
                     }
@@ -120,6 +119,7 @@ fn main() -> Result<()> {
                 // state.add_debug(format!("{:?}", suggestor.suggestions));
                 match event.action {
                     Action::QuitApp => break 'main,
+                    Action::Key(c) => state.chat_input.push(c),
                     Action::RecvMsg => {
                         let msg = Message::from_json(&event.body).unwrap();
                         state.add_message(msg);

@@ -18,6 +18,7 @@ impl Display for Event {
 
 #[derive(Debug)]
 pub enum Action {
+    Key(char),
     Stalk(String),
     QuitApp,
     ScrollUp,

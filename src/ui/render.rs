@@ -5,24 +5,21 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    io::{self, stdout, Result},
+    io::{self, Result},
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
-use time::OffsetDateTime;
 use tui::{
-    backend::{Backend, CrosstermBackend},
+    backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem},
-    Frame, Terminal,
+    widgets::{Block, Borders, List, ListItem, Paragraph},
+    Frame,
 };
-use tui_textarea::TextArea;
 
 use crate::chat::{
     features::Feature,
-    message::Message,
     state::{State, WindowList, WindowType},
 };
 
@@ -62,7 +59,6 @@ pub fn draw<B: Backend>(
     f: &mut Frame<B>,
     state: &Arc<Mutex<State>>,
     emote_list: &EmoteList,
-    text_area: &mut TextArea,
 ) -> Result<()> {
     let state = state.lock().unwrap();
     let debug_active = state.windows.get(WindowType::Debug).active;
@@ -81,16 +77,18 @@ pub fn draw<B: Backend>(
 
     // Always render chat and chat_input
     render_chat(f, chunks[0], &state, &emote_list);
-
-    text_area.set_block(
-        Block::default()
-            .style(Style::default().bg(Color::Black).fg(Color::White))
-            .borders(Borders::ALL)
-            .title("Send"),
-    );
-    f.render_widget(text_area.widget(), chunks[1]);
+    render_chat_input(f, chunks[1], &state);
 
     Ok(())
+}
+
+fn render_chat_input<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
+    let input = Paragraph::new(state.chat_input.as_ref())
+        .style(Style::default().bg(Color::Black).fg(Color::White))
+        .block(Block::default().borders(Borders::ALL).title("Send"));
+    f.set_cursor(chunk.x + state.chat_input.len() as u16 + 1, chunk.y + 1);
+
+    f.render_widget(input, chunk);
 }
 
 fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &MutexGuard<State>) {
@@ -374,27 +372,39 @@ fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     (height, start)
 }
 
-#[test]
-fn really_long_message_no_whitespace() {
-    let msg = String::from("testsadfwqrekqweoriuwqerpoiwequropiqwuroipwquropiwqeuropwiqeruwoipqruoqpiwruqpwoiruopqwiuropiqwuropqiwurqowpiruqowpiru");
-    let message = Message {
-        message: msg,
-        features: vec![],
-        name: "COCK".to_string(),
-        timestamp: OffsetDateTime::now_utc(),
-    };
-    let emote_list = EmoteList::new();
-    let backend = CrosstermBackend::new(stdout());
-    let mut terminal = Terminal::new(backend).unwrap();
-    let state = Arc::new(Mutex::new(State::new(10, "COCK".to_string())));
-    state.lock().unwrap().add_message(message);
-    let rect = Rect {
-        x: 10,
-        y: 10,
-        width: 30,
-        height: 10,
-    };
-    terminal
-        .draw(|f| render_chat(f, rect, &state.lock().unwrap(), &emote_list))
-        .unwrap();
+#[cfg(test)]
+mod tests {
+    use std::io::stdout;
+
+    use time::OffsetDateTime;
+    use tui::{backend::CrosstermBackend, Terminal};
+
+    use crate::chat::message::Message;
+
+    use super::*;
+
+    #[test]
+    fn really_long_message_no_whitespace() {
+        let msg = String::from("testsadfwqrekqweoriuwqerpoiwequropiqwuroipwquropiwqeuropwiqeruwoipqruoqpiwruqpwoiruopqwiuropiqwuropqiwurqowpiruqowpiru");
+        let message = Message {
+            message: msg,
+            features: vec![],
+            name: "COCK".to_string(),
+            timestamp: OffsetDateTime::now_utc(),
+        };
+        let emote_list = EmoteList::new();
+        let backend = CrosstermBackend::new(stdout());
+        let mut terminal = Terminal::new(backend).unwrap();
+        let state = Arc::new(Mutex::new(State::new(10, "COCK".to_string())));
+        state.lock().unwrap().add_message(message);
+        let rect = Rect {
+            x: 10,
+            y: 10,
+            width: 30,
+            height: 10,
+        };
+        terminal
+            .draw(|f| render_chat(f, rect, &state.lock().unwrap(), &emote_list))
+            .unwrap();
+    }
 }

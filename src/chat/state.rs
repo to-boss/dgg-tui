@@ -8,6 +8,7 @@ use super::{
 
 pub struct State {
     pub username: String,
+    pub chat_input: String,
     pub ul: UserList,
     pub deque: VecDeque<Event>,
     pub messages: Vec<Message>,
@@ -22,6 +23,7 @@ impl State {
         let deque = VecDeque::new();
         let messages = Vec::new();
         let debugs = Vec::new();
+        let chat_input = String::new();
         let windows = WindowList {
             windows: vec![
                 Window::new(WindowType::Chat, true, max_messages),
@@ -33,6 +35,7 @@ impl State {
 
         State {
             username,
+            chat_input,
             ul,
             deque,
             messages,
