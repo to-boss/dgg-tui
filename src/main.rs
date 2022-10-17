@@ -1,10 +1,9 @@
 use std::collections::VecDeque;
 use std::panic;
-use std::thread::current;
 use std::time::Duration;
 use std::{io::stdout, io::Result, thread};
 
-use crossterm::event::{self, KeyCode, MouseEventKind};
+use crossterm::event::{self, KeyCode};
 use dgg::chat::api::ApiCaller;
 use dgg::chat::event::Event;
 use dgg::chat::state::WindowType;
@@ -13,7 +12,6 @@ use dgg::chat::{dgg::DGG, event::Action, message::Message};
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render::{close, draw, init};
 use dgg::ui::suggester::Suggestor;
-use tui::style::Style;
 use tui::{backend::CrosstermBackend, Terminal};
 
 fn main() -> Result<()> {
@@ -43,69 +41,47 @@ fn main() -> Result<()> {
 
         // Handle Input
         if let Ok(true) = event::poll(Duration::default()) {
-            match event::read()? {
-                event::Event::Key(key_event) => {
-                    let res = match key_event.code {
-                        KeyCode::Esc => {
-                            ui_events.push_back(Event::new(Action::QuitApp, String::new()))
-                        }
-                        KeyCode::F(1) => {
-                            ui_events.push_back(Event::new(Action::ChangeUserList, String::new()))
-                        }
-                        KeyCode::F(2) => {
-                            ui_events.push_back(Event::new(Action::ChangeDebug, String::new()))
-                        }
-                        KeyCode::F(3) => {
-                            ui_events.push_back(Event::new(Action::GetEmbeds, String::new()))
-                        }
-                        KeyCode::F(4) => ui_events.push_back(Event::new(
-                            Action::Stalk(String::from("Destiny")),
-                            String::new(),
-                        )),
-                        KeyCode::PageUp => {
-                            ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
-                        }
-                        KeyCode::PageDown => {
-                            ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
-                        }
-                        KeyCode::Enter => {
-                            // let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
-                            // sender.send(message_to_send).unwrap();
-                        }
-                        KeyCode::Tab => {
-                            // text_area.insert_str(suggestor.consume());
-                            ()
-                        }
-                        KeyCode::BackTab => suggestor.pop(),
-
-                        _ => (),
-                    };
-                    // If we dont use any of these KeyCodes, send them to the text_area
-                    if res == () {
-                        match key_event.code {
-                            KeyCode::Char(' ') => {
-                                suggestor.clear_word();
-                                ui_events.push_back(Event::new(Action::Key(' '), String::new()));
-                            }
-                            KeyCode::Char(c) => {
-                                suggestor.push(c);
-                                ui_events.push_back(Event::new(Action::Key(c), String::new()));
-                            }
-                            _ => (),
-                        }
+            if let event::Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Esc => ui_events.push_back(Event::new(Action::QuitApp, String::new())),
+                    KeyCode::F(1) => {
+                        ui_events.push_back(Event::new(Action::ChangeUserList, String::new()))
                     }
-                }
-                event::Event::Mouse(mouse_event) => match mouse_event.kind {
-                    MouseEventKind::ScrollUp => {
+                    KeyCode::F(2) => {
+                        ui_events.push_back(Event::new(Action::ChangeDebug, String::new()))
+                    }
+                    KeyCode::F(3) => {
+                        ui_events.push_back(Event::new(Action::GetEmbeds, String::new()))
+                    }
+                    KeyCode::F(4) => ui_events.push_back(Event::new(
+                        Action::Stalk(String::from("Destiny")),
+                        String::new(),
+                    )),
+                    KeyCode::PageUp => {
                         ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
                     }
-                    MouseEventKind::ScrollDown => {
+                    KeyCode::PageDown => {
                         ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
                     }
-                    _ => (),
-                },
+                    KeyCode::Enter => {
+                        ui_events.push_back(Event::new(Action::SendMsg, String::new()))
+                    }
+                    KeyCode::Tab => {
+                        // text_area.insert_str(suggestor.consume());
+                        ()
+                    }
+                    KeyCode::Backspace => (),
 
-                _ => (),
+                    KeyCode::Char(' ') => {
+                        suggestor.clear_word();
+                        ui_events.push_back(Event::new(Action::Key(' '), String::new()));
+                    }
+                    KeyCode::Char(c) => {
+                        suggestor.push(c);
+                        ui_events.push_back(Event::new(Action::Key(c), String::new()));
+                    }
+                    _ => (),
+                }
             }
         }
 
@@ -118,6 +94,11 @@ fn main() -> Result<()> {
                 //state.add_debug(format!("{}: {}", event, scroll));
                 // state.add_debug(format!("{:?}", suggestor.suggestions));
                 match event.action {
+                    Action::SendMsg => {
+                        let msg: String = state.chat_input.drain(..).collect();
+                        let message_to_send = format!(r#"MSG {{"data":"{}"}}"#, msg);
+                        sender.send(message_to_send).unwrap();
+                    }
                     Action::QuitApp => break 'main,
                     Action::Key(c) => state.chat_input.push(c),
                     Action::RecvMsg => {

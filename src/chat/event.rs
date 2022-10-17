@@ -28,6 +28,7 @@ pub enum Action {
     ChangeDebug,
     ChangeUserList,
     RecvMsg,
+    SendMsg,
     UserJoin,
     UserQuit,
     UsersInit,
