@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
 
-use crate::chat::{api::ApiCaller, event::Action, message::ChatMessage, state::State};
+use crate::chat::{action::Action, api::ApiCaller, message::ChatMessage, state::State};
 
 pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
@@ -123,7 +123,7 @@ impl<'a> Network<'a> {
     async fn send_chat_message(&mut self) {
         let mut state = self.state.lock().await;
         let msg = format!(r#"MSG {{"data":"{}"}}"#, state.chat_input);
-        state.chat_input.clear();
+        state.add_to_chat_history();
         drop(state);
 
         let msg = Message::Text(msg);

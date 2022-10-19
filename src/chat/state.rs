@@ -2,7 +2,7 @@ use std::sync::mpsc::Sender;
 
 use crate::ui::window::{Window, WindowList, WindowType};
 
-use super::{event::Action, message::ChatMessage, user::UserList};
+use super::{action::Action, message::ChatMessage, user::UserList};
 
 pub struct State {
     pub io_sender: Sender<Action>,
@@ -13,6 +13,8 @@ pub struct State {
     pub message_to_send: Option<String>,
     pub windows: WindowList,
     pub debugs: Vec<String>,
+    pub chat_history: Vec<String>,
+    pub history_index: usize,
 }
 
 impl State {
@@ -21,6 +23,8 @@ impl State {
         let messages = Vec::new();
         let debugs = Vec::new();
         let chat_input = String::new();
+        let chat_history = Vec::with_capacity(50);
+        let history_index = 0;
         let windows = WindowList {
             windows: vec![
                 Window::new(WindowType::Chat, true, max_messages),
@@ -39,6 +43,8 @@ impl State {
             windows,
             message_to_send: None,
             debugs,
+            chat_history,
+            history_index,
         }
     }
 
@@ -62,5 +68,28 @@ impl State {
             self.debugs.drain(0..1);
         }
         self.debugs.push(format!("{}", s));
+    }
+
+    pub fn add_to_chat_history(&mut self) {
+        self.chat_history.push(self.chat_input.to_owned());
+        self.chat_input.clear();
+    }
+
+    pub fn chat_history_next(&mut self) {
+        match self.chat_history.get(self.history_index) {
+            Some(hist) => {
+                if self.history_index >= self.chat_history.len() - 1 {
+                    self.history_index = 0;
+                    self.chat_input = hist.to_string();
+                } else {
+                    self.history_index += 1;
+                    self.chat_input = hist.to_string();
+                }
+            }
+            None => {
+                self.history_index = 0;
+                self.chat_input = "".to_string();
+            }
+        }
     }
 }

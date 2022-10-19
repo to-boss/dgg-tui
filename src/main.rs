@@ -8,8 +8,8 @@ use crossterm::cursor::{Hide, Show};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, terminal};
+use dgg::chat::action::Action;
 use dgg::chat::command::parse_command_to_action;
-use dgg::chat::event::Action;
 use dgg::chat::state::State;
 use dgg::network::Network;
 use dgg::ui::emotes::EmoteList;
@@ -48,8 +48,6 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
-    let emote_list = EmoteList::new();
-
     // let mut suggestor = Suggestor::new(&emote_list);
 
     let tick_rate = Duration::from_millis(100);
@@ -58,6 +56,8 @@ async fn main() -> Result<()> {
     let state = cloned_state.lock().await;
     state.dispatch(Action::GetChatHistory);
     drop(state);
+
+    let emote_list = EmoteList::new();
 
     loop {
         let mut state = cloned_state.lock().await;
@@ -72,6 +72,7 @@ async fn main() -> Result<()> {
 
         if crossterm::event::poll(timeout)? {
             if let crossterm::event::Event::Key(key) = crossterm::event::read()? {
+                // match keys with modifiers
                 match key {
                     KeyEvent {
                         code: KeyCode::Backspace,
@@ -81,6 +82,7 @@ async fn main() -> Result<()> {
                     _ => (),
                 }
 
+                // match single keys
                 match key.code {
                     KeyCode::Esc => {
                         state.dispatch(Action::QuitApp);
@@ -96,30 +98,21 @@ async fn main() -> Result<()> {
                                 Ok(action) => state.dispatch(action),
                                 Err(err) => state.add_error(err.to_string()),
                             }
-                            state.chat_input.clear();
+                            state.add_to_chat_history();
                         } else {
                             state.dispatch(Action::SendMsg);
                         }
                     }
+                    KeyCode::Up => state.chat_history_next(),
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
+                    KeyCode::PageUp => state.dispatch(Action::ScrollUp),
+                    KeyCode::PageDown => state.dispatch(Action::ScrollDown),
                     _ => (),
                 }
             }
         }
-
-        //             KeyCode::PageUp => {
-        //                 ui_events.push_back(Event::new(Action::ScrollUp, String::new()))
-        //             }
-        //             KeyCode::PageDown => {
-        //                 ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
-        //             }
-        //             KeyCode::Tab => {
-        //                 // text_area.insert_str(suggestor.consume());
-        //                 ()
-        //             }
-        //             Action::ScrollUp => state.windows.get_mut(WindowType::Chat).scroll(-1),
-        //             Action::ScrollDown => state.windows.get_mut(WindowType::Chat).scroll(1),
+        // should this be tokio sleep?
         thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
     }
 

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use anyhow::bail;
 use anyhow::Result;
 
-use super::event::Action;
+use super::action::Action;
 
 #[derive(Debug)]
 pub enum Command {

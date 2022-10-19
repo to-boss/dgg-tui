@@ -38,6 +38,7 @@ pub enum Action {
 
 impl Action {
     pub fn from_prefix_and_json(prefix: &str, json: &str) -> Action {
+        // These actions come from the websocket only!
         match prefix {
             "MSG" => Action::RecvMsg(ChatMessage::from_json(json)),
             "JOIN" => Action::UserJoin(User::from_json(json)),
