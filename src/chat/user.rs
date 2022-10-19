@@ -2,6 +2,7 @@ use std::io::Error;
 
 use serde_json::Value;
 
+#[derive(Debug)]
 pub struct User {
     pub name: String,
     pub features: Vec<String>,
@@ -21,6 +22,7 @@ impl User {
     }
 }
 
+#[derive(Debug)]
 pub struct UserList {
     pub users: Vec<User>,
     pub conn_count: usize,

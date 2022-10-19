@@ -1,5 +1,4 @@
 pub mod api;
-pub mod dgg;
 pub mod event;
 pub mod features;
 pub mod message;
