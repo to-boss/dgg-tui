@@ -33,7 +33,7 @@ impl State {
             windows: vec![
                 Window::new(WindowType::Chat, true, max_messages),
                 Window::new(WindowType::ChatInput, true, 2),
-                Window::new(WindowType::Debug, false, 30),
+                Window::new(WindowType::Debug, true, 30),
                 Window::new(WindowType::UserList, false, 50),
             ],
         };

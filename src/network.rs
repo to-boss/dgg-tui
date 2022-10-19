@@ -5,10 +5,11 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
 
-use crate::chat::{event::Action, state::State};
+use crate::chat::{api::ApiCaller, event::Action, state::State};
 
 pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
+    api_caller: ApiCaller,
     chat_msg_sender: futures::channel::mpsc::Sender<Message>,
     running: Arc<RwLock<bool>>,
 }
@@ -18,9 +19,11 @@ impl<'a> Network<'a> {
         state: &'a Arc<Mutex<State>>,
         chat_msg_sender: futures::channel::mpsc::Sender<Message>,
     ) -> Network {
+        let api_caller = ApiCaller::new();
         let running = Arc::new(RwLock::new(false));
         Network {
             state,
+            api_caller,
             chat_msg_sender,
             running,
         }
@@ -66,15 +69,7 @@ impl<'a> Network<'a> {
                 if *c1_running.read().unwrap() {
                     if let Some(Ok(msg)) = read.next().await {
                         if let Message::Text(text) = msg {
-                            let msg_splits: Vec<String> = text
-                                .to_string()
-                                .splitn(2, " ")
-                                .map(|s| s.to_string())
-                                .collect();
-
-                            let (prefix, json) = (&msg_splits[0], &msg_splits[1]);
-                            let action = Action::from_prefix_and_json(&prefix, &json);
-                            io_sender.send(action).unwrap();
+                            io_sender.send(parse_msg(text)).unwrap();
                         }
                     }
                 } else {
@@ -95,6 +90,24 @@ impl<'a> Network<'a> {
         *running = true;
     }
 
+    async fn stalk(&self, name: String, num: usize) {
+        let stalks = self.api_caller.stalk(name, num).await.unwrap();
+        let mut state = self.state.lock().await;
+
+        stalks
+            .iter()
+            .for_each(|msg| state.add_debug(msg.to_string()));
+    }
+
+    async fn get_chat_history(&self) {
+        let messages = self.api_caller.get_chat_history().await.unwrap();
+        let state = self.state.lock().await;
+        messages
+            .into_iter()
+            .take(50)
+            .for_each(|msg| state.dispatch(parse_msg(msg)));
+    }
+
     async fn send_chat_message(&mut self) {
         let mut state = self.state.lock().await;
         let msg = format!(r#"MSG {{"data":"{}"}}"#, state.chat_input);
@@ -109,11 +122,11 @@ impl<'a> Network<'a> {
         self.state.lock().await.add_debug(action.to_string());
         match action {
             Action::Key(_) => (),
-            Action::Stalk(_) => (),
+            Action::Stalk(name, num) => self.stalk(name, num).await,
             Action::QuitApp => self.close(),
             Action::ScrollUp => (),
             Action::ScrollDown => (),
-            Action::GetChatHistory => (),
+            Action::GetChatHistory => self.get_chat_history().await,
             Action::GetEmbeds => (),
             Action::ChangeDebug => (),
             Action::ChangeUserList => (),
@@ -162,4 +175,15 @@ impl<'a> Network<'a> {
     //     let msg = Message::Text(json);
     //     self.write_sender.send(msg).unwrap();
     // }
+}
+
+pub fn parse_msg(msg: String) -> Action {
+    let msg_splits: Vec<String> = msg
+        .to_string()
+        .splitn(2, " ")
+        .map(|s| s.to_string())
+        .collect();
+
+    let (prefix, json) = (&msg_splits[0], &msg_splits[1]);
+    Action::from_prefix_and_json(&prefix, &json)
 }

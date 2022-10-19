@@ -57,7 +57,6 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
-    // let api_caller = ApiCaller::new();
     let emote_list = EmoteList::new();
     // let mut ui_events: VecDeque<Event> = VecDeque::new();
     // ui_events.push_back(Event::new(Action::GetChatHistory, String::new()));
@@ -66,6 +65,10 @@ async fn main() -> Result<()> {
 
     let tick_rate = Duration::from_millis(100);
     let last_tick = Instant::now();
+
+    let state = cloned_state.lock().await;
+    state.dispatch(Action::GetChatHistory);
+    drop(state);
 
     loop {
         let mut state = cloned_state.lock().await;
@@ -90,7 +93,15 @@ async fn main() -> Result<()> {
                         state.chat_input.pop();
                     }
                     KeyCode::Enter => {
-                        state.dispatch(Action::SendMsg);
+                        if state.chat_input.starts_with("/") {
+                            let whitespace = state.chat_input.find(" ").unwrap();
+                            let command = &state.chat_input[1..whitespace];
+                            if command == "stalk" {
+                                state.dispatch(Action::Stalk("Destiny".to_string(), 20));
+                            }
+                        } else {
+                            state.dispatch(Action::SendMsg);
+                        }
                     }
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
@@ -222,7 +233,7 @@ async fn main() -> Result<()> {
         //     }
         // };/
 
-        thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
+        // thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
     }
 
     // close()?;

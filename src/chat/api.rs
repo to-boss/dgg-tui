@@ -1,7 +1,9 @@
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Display};
 use time::OffsetDateTime;
+
+use super::message::ChatMessage;
 
 pub struct ApiCaller {
     client: Client,
@@ -9,42 +11,63 @@ pub struct ApiCaller {
 
 impl ApiCaller {
     pub fn new() -> ApiCaller {
-        let client = reqwest::blocking::Client::default();
+        let client = reqwest::Client::default();
         ApiCaller { client }
     }
 
-    pub fn get_last_embeds(&self) -> Result<Vec<Embed>, Box<dyn Error>> {
+    pub async fn get_last_embeds(&self) -> Result<Vec<Embed>, Box<dyn Error>> {
         let res = self
             .client
             .get("https://vyneer.me/tools/embeds/last")
-            .send()?
+            .send()
+            .await?
             .text()
+            .await
             .unwrap();
+
         let embeds: Vec<Embed> = serde_json::from_str(&res).unwrap();
         Ok(embeds)
     }
 
-    pub fn get_chat_history(&self) -> Result<Vec<String>, Box<dyn Error>> {
+    pub async fn get_chat_history(&self) -> Result<Vec<String>, Box<dyn Error>> {
         let res = self
             .client
             .get("https://www.destiny.gg/api/chat/history")
-            .send()?
+            .send()
+            .await?
             .text()
+            .await
             .unwrap();
-        let messages: Vec<String> = serde_json::from_str(&res)?;
+
+        let messages: Vec<String> = serde_json::from_str(&res).unwrap();
         Ok(messages)
     }
 
-    pub fn stalk(&self, username: String) -> Result<Vec<Stalk>, Box<dyn Error>> {
+    pub async fn stalk(&self, username: String, size: usize) -> Result<Vec<Stalk>, Box<dyn Error>> {
         let res = self
             .client
-            .get(format!("https://polecat.me/api/stalk/{}?size=10", username))
-            .send()?
+            .get(format!(
+                "https://polecat.me/api/stalk/{}?size={}",
+                username, size
+            ))
+            .send()
+            .await?
             .text()
+            .await
             .unwrap();
-        let messages: Vec<Stalk> = serde_json::from_str(&res)?;
+
+        let messages: Vec<Stalk> = serde_json::from_str(&res).unwrap();
         Ok(messages)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChatHistory {
+    nick: String,
+    features: Vec<String>,
+    #[serde(with = "time::serde::timestamp")]
+    pub timestamp: OffsetDateTime,
+    data: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
