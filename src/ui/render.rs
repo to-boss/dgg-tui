@@ -211,7 +211,7 @@ fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_l
 
             // Handle Name
             let pf = parse_flair(&m.features);
-            let name_color = match pf {
+            let mut name_color = match pf {
                 Feature::Tier1 => Color::Cyan,
                 Feature::Tier2 => Color::LightCyan,
                 Feature::Tier3 => Color::LightGreen,
@@ -222,6 +222,10 @@ fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_l
                 Feature::Admin => Color::Red,
                 _ => Color::White,
             };
+
+            if name.eq("ERROR") {
+                name_color = Color::LightRed;
+            }
 
             // Handle Greentext
             let mut message_color = Color::White;

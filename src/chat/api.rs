@@ -1,49 +1,34 @@
+use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{error::Error, fmt::Display};
+use std::{fmt::Display, time::Duration};
 use time::OffsetDateTime;
-
-use super::message::ChatMessage;
+use tokio::time::Instant;
 
 pub struct ApiCaller {
     client: Client,
+    timer: Instant,
 }
 
 impl ApiCaller {
     pub fn new() -> ApiCaller {
         let client = reqwest::Client::default();
-        ApiCaller { client }
+        let timer = Instant::now();
+        ApiCaller { client, timer }
     }
 
-    pub async fn get_last_embeds(&self) -> Result<Vec<Embed>, Box<dyn Error>> {
-        let res = self
-            .client
-            .get("https://vyneer.me/tools/embeds/last")
-            .send()
-            .await?
-            .text()
-            .await
-            .unwrap();
-
-        let embeds: Vec<Embed> = serde_json::from_str(&res).unwrap();
-        Ok(embeds)
+    fn check_timer(&mut self) -> Result<()> {
+        if self.timer.elapsed() <= Duration::from_secs(10) {
+            bail!("Wait atleast 10 seconds between API calls.")
+        } else {
+            self.timer = Instant::now();
+            Ok(())
+        }
     }
 
-    pub async fn get_chat_history(&self) -> Result<Vec<String>, Box<dyn Error>> {
-        let res = self
-            .client
-            .get("https://www.destiny.gg/api/chat/history")
-            .send()
-            .await?
-            .text()
-            .await
-            .unwrap();
+    pub async fn stalk(&mut self, username: String, size: usize) -> Result<Vec<Stalk>> {
+        self.check_timer()?;
 
-        let messages: Vec<String> = serde_json::from_str(&res).unwrap();
-        Ok(messages)
-    }
-
-    pub async fn stalk(&self, username: String, size: usize) -> Result<Vec<Stalk>, Box<dyn Error>> {
         let res = self
             .client
             .get(format!(
@@ -53,10 +38,36 @@ impl ApiCaller {
             .send()
             .await?
             .text()
-            .await
-            .unwrap();
+            .await?;
 
-        let messages: Vec<Stalk> = serde_json::from_str(&res).unwrap();
+        let messages: Vec<Stalk> = serde_json::from_str(&res)?;
+        Ok(messages)
+    }
+
+    pub async fn get_last_embeds(&mut self) -> Result<Vec<Embed>> {
+        self.timer = Instant::now();
+        let res = self
+            .client
+            .get("https://vyneer.me/tools/embeds/last")
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let embeds: Vec<Embed> = serde_json::from_str(&res)?;
+        Ok(embeds)
+    }
+
+    pub async fn get_chat_history(&self) -> Result<Vec<String>> {
+        let res = self
+            .client
+            .get("https://www.destiny.gg/api/chat/history")
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let messages: Vec<String> = serde_json::from_str(&res)?;
         Ok(messages)
     }
 }
@@ -126,8 +137,7 @@ impl Embed {
             _ => "ERROR: matching real_link()",
         };
         let suffix = &self.link[index..];
-        let real_link = format!("{}{}{}", prefix, fix, suffix);
-        real_link
+        format!("{}{}{}", prefix, fix, suffix)
     }
 }
 

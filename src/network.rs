@@ -1,6 +1,6 @@
 use std::sync::{mpsc::Sender, Arc, RwLock};
 
-use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
+use futures::{channel::mpsc::Receiver, lock, SinkExt, StreamExt};
 use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
@@ -90,22 +90,29 @@ impl<'a> Network<'a> {
         *running = true;
     }
 
-    async fn stalk(&self, name: String, num: usize) {
-        let stalks = self.api_caller.stalk(name, num).await.unwrap();
-        let mut state = self.state.lock().await;
-
-        stalks
-            .iter()
-            .for_each(|msg| state.add_debug(msg.to_string()));
+    async fn stalk(&mut self, name: String, num: usize) {
+        match self.api_caller.stalk(name, num).await {
+            Ok(stalks) => {
+                let mut state = self.state.lock().await;
+                stalks
+                    .iter()
+                    .for_each(|msg| state.add_debug(msg.to_string()));
+            }
+            Err(err) => self.state.lock().await.add_error(err.to_string()),
+        }
     }
 
     async fn get_chat_history(&self) {
-        let messages = self.api_caller.get_chat_history().await.unwrap();
-        let state = self.state.lock().await;
-        messages
-            .into_iter()
-            .take(50)
-            .for_each(|msg| state.dispatch(parse_msg(msg)));
+        match self.api_caller.get_chat_history().await {
+            Ok(chat_history) => {
+                let state = self.state.lock().await;
+                chat_history
+                    .into_iter()
+                    .take(50)
+                    .for_each(|msg| state.dispatch(parse_msg(msg)));
+            }
+            Err(err) => self.state.lock().await.add_error(err.to_string()),
+        }
     }
 
     async fn send_chat_message(&mut self) {
@@ -146,35 +153,14 @@ impl<'a> Network<'a> {
             Action::Pong => (),
             Action::Refresh => (),
             Action::Binary => (),
-            Action::Err(err_msg) => self.state.lock().await.add_debug(err_msg.to_string()),
-            Action::Unreachable(un_msg) => self.state.lock().await.add_debug(un_msg),
+            Action::Err(err_msg) => self.state.lock().await.add_error(err_msg.to_string()),
+            Action::Unreachable(un_msg) => self
+                .state
+                .lock()
+                .await
+                .add_error(format!("NETWORK: Unreachable = {}", un_msg)),
         }
     }
-
-    // pub fn recv(&mut self) -> Option<Action> {
-    //     if let Ok(msg) = self.read_recv.try_recv() {
-    //         if msg.is_text() {
-    //             let msg_splits: Vec<String> = msg
-    //                 .to_string()
-    //                 .splitn(2, " ")
-    //                 .map(|s| s.to_string())
-    //                 .collect();
-    //             let (prefix, json) = (&msg_splits[0], &msg_splits[1]);
-    //             match prefix.as_str() {
-    //                 "ERR" => return Some(Action::Err),
-    //                 "MSG" => return Some(Action::RecvMsg(ChatMessage::from_json(json))),
-    //                 _ => return None,
-    //             }
-    //         }
-    //     }
-    //     None
-    // }
-
-    // pub fn send(&self, s: String) {
-    //     let json = format!(r#"MSG {{"data":"{}"}}"#, s);
-    //     let msg = Message::Text(json);
-    //     self.write_sender.send(msg).unwrap();
-    // }
 }
 
 pub fn parse_msg(msg: String) -> Action {
