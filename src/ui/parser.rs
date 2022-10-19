@@ -1,6 +1,5 @@
-use std::str::FromStr;
-
 use crate::chat::features::Feature;
+use anyhow::{bail, Result};
 
 use super::emotes::EmoteList;
 
@@ -20,13 +19,14 @@ pub fn parse_emotes(s: String, emotes: &EmoteList) -> String {
     words.join(" ")
 }
 
-pub fn parse_flair(feats: &Vec<String>) -> Feature {
+pub fn parse_flair(feats: &Vec<String>) -> Result<Feature> {
     let len = feats.len();
     if len == 2 {
-        return Feature::from_str(&feats[1]).unwrap();
+        return Ok(Feature::from_str(&feats[1])?);
     } else if len == 1 && feats.len() > 0 {
-        return Feature::from_str(&feats[0]).unwrap();
+        return Ok(Feature::from_str(&feats[0])?);
     } else {
-        Feature::White
+        return Ok(Feature::White);
     }
+    bail!("Could not parse_parse flair");
 }

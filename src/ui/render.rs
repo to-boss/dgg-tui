@@ -1,14 +1,4 @@
-use crossterm::{
-    cursor::{Hide, Show},
-    event::{self, KeyCode},
-    execute,
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use std::{
-    io::{self, Result},
-    sync::{Arc, Mutex, MutexGuard},
-    time::Duration,
-};
+use anyhow::Result;
 use tui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -25,33 +15,6 @@ use super::{
     parser::{parse_emotes, parse_flair},
     window::{WindowList, WindowType},
 };
-
-pub fn init() -> Result<()> {
-    terminal::enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, Hide, EnterAlternateScreen)?;
-    Ok(())
-}
-
-pub fn close() -> Result<()> {
-    let mut stdout = io::stdout();
-    execute!(stdout, Show, LeaveAlternateScreen)?;
-    terminal::disable_raw_mode()?;
-    Ok(())
-}
-
-pub fn get_key() -> crossterm::Result<KeyCode> {
-    if let Ok(bool) = event::poll(Duration::default()) {
-        if bool {
-            if let event::Event::Key(key) = event::read().unwrap() {
-                match key {
-                    _ => return Ok(key.code),
-                }
-            }
-        }
-    }
-    Ok(KeyCode::Null)
-}
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, state: &State, emote_list: &EmoteList) -> Result<()> {
     let debug_active = state.windows.get(WindowType::Debug).active;
@@ -134,21 +97,14 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
         .iter()
         .map(|m| {
             let name = m.name.to_string();
-            // Handle Name
-            let pf = parse_flair(&m.features);
-            let name_style = match pf {
-                Feature::Tier1 => Style::default().fg(Color::Cyan),
-                Feature::Tier2 => Style::default().fg(Color::LightCyan),
-                Feature::Tier3 => Style::default().fg(Color::Green),
-                Feature::Tier4 => Style::default().fg(Color::Magenta),
-                Feature::Vip => Style::default().fg(Color::Rgb(231, 144, 21)),
-                Feature::Mod => Style::default().fg(Color::Yellow),
-                Feature::Broadcaster => Style::default().fg(Color::Rgb(231, 144, 21)),
-                Feature::Admin => Style::default().fg(Color::Red),
-                _ => Style::default().fg(Color::White),
-            };
 
-            let line = Spans::from(vec![Span::styled(format!("{}", name), name_style)]);
+            // Handle Name
+            let name_style = get_name_color_from_flair(&m.features);
+
+            let line = Spans::from(vec![Span::styled(
+                format!("{}", name),
+                Style::default().fg(name_style),
+            )]);
             ListItem::new(line)
         })
         .collect();
@@ -210,18 +166,7 @@ fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_l
             // let pm = m.message.to_string();
 
             // Handle Name
-            let pf = parse_flair(&m.features);
-            let mut name_color = match pf {
-                Feature::Tier1 => Color::Cyan,
-                Feature::Tier2 => Color::LightCyan,
-                Feature::Tier3 => Color::LightGreen,
-                Feature::Tier4 => Color::Magenta,
-                Feature::Vip => Color::Rgb(230, 144, 20),
-                Feature::Mod => Color::Yellow,
-                Feature::Broadcaster => Color::Rgb(230, 144, 20),
-                Feature::Admin => Color::Red,
-                _ => Color::White,
-            };
+            let mut name_color = get_name_color_from_flair(&m.features);
 
             // Handle Greentext
             let mut message_color = Color::White;
@@ -368,6 +313,21 @@ fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     };
 
     (height, start)
+}
+
+fn get_name_color_from_flair(features: &Vec<String>) -> Color {
+    let pf = parse_flair(features).unwrap();
+    match pf {
+        Feature::Tier1 => Color::Cyan,
+        Feature::Tier2 => Color::LightCyan,
+        Feature::Tier3 => Color::LightGreen,
+        Feature::Tier4 => Color::Magenta,
+        Feature::Vip => Color::Rgb(230, 144, 20),
+        Feature::Mod => Color::Yellow,
+        Feature::Broadcaster => Color::Rgb(230, 144, 20),
+        Feature::Admin => Color::Red,
+        _ => Color::White,
+    }
 }
 
 #[cfg(test)]

@@ -26,7 +26,7 @@ impl ApiCaller {
         }
     }
 
-    pub async fn stalk(&mut self, username: String, size: usize) -> Result<Vec<Stalk>> {
+    pub async fn stalk(&mut self, username: String, size: u8) -> Result<Vec<Stalk>> {
         self.check_timer()?;
 
         let res = self
@@ -48,7 +48,7 @@ impl ApiCaller {
         self.timer = Instant::now();
         let res = self
             .client
-            .get("https://vyneer.me/tools/embeds/last")
+            .get("https://vyneer.me/tools/embeds?t=30")
             .send()
             .await?
             .text()
@@ -121,9 +121,9 @@ impl Display for Stalk {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Embed {
     pub channel: String,
+    pub count: u8,
     pub link: String,
     pub platform: String,
-    pub timestamp: u64,
     pub title: String,
 }
 
@@ -145,10 +145,10 @@ impl Display for Embed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{}] {}: {}",
-            self.timestamp,
-            self.channel,
-            self.real_link()
+            "[{} times] {} | {}",
+            self.count,
+            self.real_link(),
+            self.title,
         )
     }
 }

@@ -1,5 +1,3 @@
-use std::io::Error;
-
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 

@@ -1,6 +1,6 @@
 use std::sync::{mpsc::Sender, Arc, RwLock};
 
-use futures::{channel::mpsc::Receiver, lock, SinkExt, StreamExt};
+use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
 use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
@@ -55,33 +55,20 @@ impl<'a> Network<'a> {
         let (ws_stream, _) = connect_async(request)
             .await
             .expect("Failed to connect to WebSocket.");
-
-        let mut running = self.running.write().unwrap();
-        *running = true;
-        drop(running);
-        let c1_running = Arc::clone(&self.running);
-        let c2_running = Arc::clone(&self.running);
-
         let (write, mut read) = ws_stream.split();
 
         tokio::spawn(async move {
             loop {
-                if *c1_running.read().unwrap() {
-                    if let Some(Ok(msg)) = read.next().await {
-                        if let Message::Text(text) = msg {
-                            io_sender.send(parse_msg(text)).unwrap();
-                        }
+                if let Some(Ok(msg)) = read.next().await {
+                    if let Message::Text(text) = msg {
+                        io_sender.send(parse_msg(text)).unwrap();
                     }
-                } else {
-                    break;
                 }
             }
         });
 
         tokio::spawn(async move {
-            if *c2_running.read().unwrap() {
-                chat_recv.map(Ok).forward(write).await.unwrap();
-            }
+            chat_recv.map(Ok).forward(write).await.unwrap();
         });
     }
 
@@ -105,7 +92,7 @@ impl<'a> Network<'a> {
         }
     }
 
-    async fn stalk(&mut self, name: String, num: usize) {
+    async fn stalk(&mut self, name: String, num: u8) {
         match self.api_caller.stalk(name, num).await {
             Ok(stalks) => {
                 let mut state = self.state.lock().await;

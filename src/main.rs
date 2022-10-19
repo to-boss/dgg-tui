@@ -1,18 +1,19 @@
+use std::io;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{io, panic};
-use std::{io::stdout, io::Result, thread};
+use std::{io::Result, thread};
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, terminal};
+use dgg::chat::command::parse_command_to_action;
 use dgg::chat::event::Action;
 use dgg::chat::state::State;
 use dgg::network::Network;
 use dgg::ui::emotes::EmoteList;
-use dgg::ui::render::{self, close};
+use dgg::ui::render;
 use dgg::ui::suggester::Suggestor;
 use dgg::ui::window::WindowType;
 use tokio::sync::Mutex;
@@ -71,6 +72,15 @@ async fn main() -> Result<()> {
 
         if crossterm::event::poll(timeout)? {
             if let crossterm::event::Event::Key(key) = crossterm::event::read()? {
+                match key {
+                    KeyEvent {
+                        code: KeyCode::Backspace,
+                        modifiers: KeyModifiers::CONTROL,
+                        ..
+                    } => state.chat_input.clear(),
+                    _ => (),
+                }
+
                 match key.code {
                     KeyCode::Esc => {
                         state.dispatch(Action::QuitApp);
@@ -82,12 +92,11 @@ async fn main() -> Result<()> {
                     }
                     KeyCode::Enter => {
                         if state.chat_input.starts_with("/") {
-                            let command = &state.chat_input[1..];
-                            if command.contains("stalk") {
-                                state.dispatch(Action::Stalk("Destiny".to_string(), 20));
-                            } else if command.contains("embed") {
-                                state.dispatch(Action::GetEmbeds);
+                            match parse_command_to_action(&state.chat_input) {
+                                Ok(action) => state.dispatch(action),
+                                Err(err) => state.add_error(err.to_string()),
                             }
+                            state.chat_input.clear();
                         } else {
                             state.dispatch(Action::SendMsg);
                         }
@@ -105,36 +114,12 @@ async fn main() -> Result<()> {
         //             KeyCode::PageDown => {
         //                 ui_events.push_back(Event::new(Action::ScrollDown, String::new()))
         //             }
-        //             KeyCode::Enter => {
-        //                 ui_events.push_back(Event::new(Action::SendMsg, String::new()))
-        //             }
         //             KeyCode::Tab => {
         //                 // text_area.insert_str(suggestor.consume());
         //                 ()
         //             }
-        //             KeyCode::Backspace => (),
-
-        //             KeyCode::Char(' ') => {
-        //                 suggestor.clear_word();
-        //                 ui_events.push_back(Event::new(Action::Key(' '), String::new()));
-        //             }
-        //             KeyCode::Char(c) => {
-        //                 suggestor.push(c);
-        //                 ui_events.push_back(Event::new(Action::Key(c), String::new()));
-
-        //             Action::UserJoin => state.ul.add(User::from_json(&event.body).unwrap()),
-        //             Action::UserQuit => state.ul.remove(User::from_json(&event.body).unwrap()),
         //             Action::ScrollUp => state.windows.get_mut(WindowType::Chat).scroll(-1),
         //             Action::ScrollDown => state.windows.get_mut(WindowType::Chat).scroll(1),
-        //
-        //             Action::GetEmbeds => {
-        //                 let embeds = api_caller.get_last_embeds().unwrap();
-        //                 state.add_debug(embeds[0].to_string());
-        //                 state.add_debug(embeds[1].to_string());
-        //                 state.add_debug(embeds[2].to_string());
-        //                 state.add_debug(embeds[3].to_string());
-        //                 state.add_debug(embeds[4].to_string());
-
         thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
     }
 
@@ -159,14 +144,14 @@ async fn start_tokio(
 }
 
 fn custom_panic() {
-    #[cfg(not(debug_assertions))]
-    panic::set_hook(Box::new(|_| {
-        println!("");
-    }));
+    // #[cfg(not(debug_assertions))]
+    // panic::set_hook(Box::new(|_| {
+    //     println!("");
+    // }));
 
-    #[cfg(debug_assertions)]
-    panic::set_hook(Box::new(|panic_info| {
-        let _ = close();
-        println!("{}", panic_info);
-    }))
+    // #[cfg(debug_assertions)]
+    // panic::set_hook(Box::new(|panic_info| {
+    //     let _ = close();
+    //     println!("{}", panic_info);
+    // }))
 }

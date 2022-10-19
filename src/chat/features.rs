@@ -1,5 +1,4 @@
-use core::panic;
-use std::str::FromStr;
+use anyhow::{bail, Result};
 
 pub enum Feature {
     White,
@@ -29,11 +28,21 @@ pub enum Feature {
     Eve,
     Gym,
     League,
+    Nfl,
+    MinecraftVIP,
+    Micro,
+    EmoteMaster,
+    DggShirtDesigner,
+    Verified,
+    YoutubeEditor,
+    DndGold,
+    DndScoria,
+    DndKnight,
+    TikTokEditor,
 }
 
-impl FromStr for Feature {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl Feature {
+    pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "subscriber" => Ok(Feature::Sub),
             "bot" => Ok(Feature::Bot),
@@ -47,31 +56,31 @@ impl FromStr for Feature {
             "flair4" => Ok(Feature::Trusted),
             "flair5" => Ok(Feature::Contributor),
             "flair6" => Ok(Feature::Music),
-            "flair7" => Ok(Feature::Eve),
+            "flair7" => Ok(Feature::Nfl),
             "flair8" => Ok(Feature::Tier4),
             "flair9" => Ok(Feature::Twitch),
             "flair10" => Ok(Feature::Sc2),
             "flair11" => Ok(Feature::Bot2),
             "flair12" => Ok(Feature::Broadcaster),
             "flair13" => Ok(Feature::Tier1),
-            "flair14" => Ok(Feature::White), // not sure
+            "flair14" => Ok(Feature::MinecraftVIP),
             "flair15" => Ok(Feature::Birthday),
             "flair16" => Ok(Feature::EmoteContributor),
-            "flair17" => Ok(Feature::White), // not sure
-            "flair18" => Ok(Feature::White), // not sure
-            "flair19" => Ok(Feature::White), // not sure
-            "flair20" => Ok(Feature::White), // not sure
-            "flair21" => Ok(Feature::White), // not sure
-            "flair22" => Ok(Feature::White), // not sure
-            "flair23" => Ok(Feature::White), // not sure
-            "flair24" => Ok(Feature::Dnd),
+            "flair17" => Ok(Feature::Micro),
+            "flair18" => Ok(Feature::EmoteMaster),
+            "flair19" => Ok(Feature::DggShirtDesigner),
+            "flair20" => Ok(Feature::Verified),
+            "flair21" => Ok(Feature::YoutubeEditor),
+            "flair22" => Ok(Feature::DndGold),
+            "flair23" => Ok(Feature::White),
+            "flair24" => Ok(Feature::DndScoria),
             "flair25" => Ok(Feature::YoutubeContributor),
-            "flair26" => Ok(Feature::Dnd),
-            "flair27" => Ok(Feature::White), // not sure
+            "flair26" => Ok(Feature::DndKnight),
+            "flair27" => Ok(Feature::TikTokEditor),
             "flair28" => Ok(Feature::Lawyer),
             "flair29" => Ok(Feature::Gym),
             "flair30" => Ok(Feature::League),
-            _ => panic!("ParserError: {}", s),
+            _ => bail!("Could not find flair {}", s),
         }
     }
 }

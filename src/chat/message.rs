@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, io::Error};
+use std::fmt::Display;
 use time::OffsetDateTime;
 use tungstenite::Message;
 
