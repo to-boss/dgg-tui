@@ -223,10 +223,6 @@ fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_l
                 _ => Color::White,
             };
 
-            if name.eq("ERROR") {
-                name_color = Color::LightRed;
-            }
-
             // Handle Greentext
             let mut message_color = Color::White;
             if pm.starts_with(">") {
@@ -242,6 +238,16 @@ fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_l
             // Handle Highlight other Message
             if pm.contains(&state.username) {
                 bg_color = Color::Rgb(10, 40, 60);
+            }
+
+            if name.eq("STALK") || name.eq("EMBED") {
+                name_color = Color::Rgb(250, 0, 140);
+                bg_color = Color::Rgb(50, 50, 50);
+            }
+
+            if name.eq("ERROR") {
+                name_color = Color::LightRed;
+                bg_color = Color::Rgb(50, 50, 50);
             }
 
             // Handle Line Wraps

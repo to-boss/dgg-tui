@@ -82,10 +82,11 @@ async fn main() -> Result<()> {
                     }
                     KeyCode::Enter => {
                         if state.chat_input.starts_with("/") {
-                            let whitespace = state.chat_input.find(" ").unwrap();
-                            let command = &state.chat_input[1..whitespace];
-                            if command == "stalk" {
+                            let command = &state.chat_input[1..];
+                            if command.contains("stalk") {
                                 state.dispatch(Action::Stalk("Destiny".to_string(), 20));
+                            } else if command.contains("embed") {
+                                state.dispatch(Action::GetEmbeds);
                             }
                         } else {
                             state.dispatch(Action::SendMsg);

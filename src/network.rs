@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
 
-use crate::chat::{api::ApiCaller, event::Action, state::State};
+use crate::chat::{api::ApiCaller, event::Action, message::ChatMessage, state::State};
 
 pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
@@ -90,13 +90,31 @@ impl<'a> Network<'a> {
         *running = true;
     }
 
+    async fn get_last_embeds(&mut self) {
+        match self.api_caller.get_last_embeds().await {
+            Ok(embeds) => {
+                let mut state = self.state.lock().await;
+                embeds.iter().for_each(|msg| {
+                    state.add_message(ChatMessage::from_string(
+                        "EMBED".to_string(),
+                        msg.to_string(),
+                    ))
+                });
+            }
+            Err(err) => self.state.lock().await.add_error(err.to_string()),
+        }
+    }
+
     async fn stalk(&mut self, name: String, num: usize) {
         match self.api_caller.stalk(name, num).await {
             Ok(stalks) => {
                 let mut state = self.state.lock().await;
-                stalks
-                    .iter()
-                    .for_each(|msg| state.add_debug(msg.to_string()));
+                stalks.iter().for_each(|msg| {
+                    state.add_message(ChatMessage::from_string(
+                        "STALK".to_string(),
+                        msg.to_string(),
+                    ))
+                });
             }
             Err(err) => self.state.lock().await.add_error(err.to_string()),
         }
@@ -134,13 +152,13 @@ impl<'a> Network<'a> {
             Action::ScrollUp => (),
             Action::ScrollDown => (),
             Action::GetChatHistory => self.get_chat_history().await,
-            Action::GetEmbeds => (),
+            Action::GetEmbeds => self.get_last_embeds().await,
             Action::ChangeDebug => (),
             Action::ChangeUserList => (),
             Action::RecvMsg(chat_msg) => self.state.lock().await.add_message(chat_msg),
             Action::SendMsg => self.send_chat_message().await,
-            Action::UserJoin => (),
-            Action::UserQuit => (),
+            Action::UserJoin(user) => self.state.lock().await.ul.add(user),
+            Action::UserQuit(user) => self.state.lock().await.ul.remove(user),
             Action::UsersInit(mut user_list) => self.state.lock().await.ul.append(&mut user_list),
             Action::Mute => (),
             Action::Unmute => (),

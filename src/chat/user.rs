@@ -1,47 +1,37 @@
 use std::io::Error;
 
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct User {
-    pub name: String,
     pub features: Vec<String>,
+    #[serde(rename(deserialize = "nick"))]
+    pub name: String,
+    #[serde(with = "time::serde::timestamp", default = "default_timestamp")]
+    pub timestamp: OffsetDateTime,
+}
+
+fn default_timestamp() -> OffsetDateTime {
+    OffsetDateTime::now_utc()
 }
 
 impl User {
-    pub fn from_json(json: &str) -> Result<User, Error> {
-        let v: Value = serde_json::from_str(json)?;
-        let name = v["nick"].as_str().unwrap().to_string();
-        let features = v["features"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|f| f.as_str().unwrap().to_string())
-            .collect();
-        Ok(User { name, features })
+    pub fn from_json(json: &str) -> User {
+        serde_json::from_str(json).unwrap()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct UserList {
-    pub users: Vec<User>,
+    #[serde(rename(deserialize = "connectioncount"))]
     pub conn_count: usize,
+    pub users: Vec<User>,
 }
 
 impl UserList {
-    pub fn from_json(json: &str) -> Result<UserList, Error> {
-        let mut v: Value = serde_json::from_str(json)?;
-        let connection_count = v["connectioncount"].as_u64().unwrap() as usize;
-        let users_json = v["users"].as_array_mut().unwrap();
-        let users = users_json
-            .iter_mut()
-            .map(|user| User::from_json(user.to_string().as_str()).unwrap())
-            .collect();
-
-        Ok(UserList {
-            users,
-            conn_count: connection_count,
-        })
+    pub fn from_json(json: &str) -> UserList {
+        serde_json::from_str(json).unwrap()
     }
 
     pub fn append(&mut self, other: &mut UserList) {

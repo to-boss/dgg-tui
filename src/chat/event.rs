@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use super::{message::ChatMessage, user::UserList};
+use super::{
+    message::ChatMessage,
+    user::{User, UserList},
+};
 pub struct Event {
     pub action: Action,
     pub body: String,
@@ -31,8 +34,8 @@ pub enum Action {
     ChangeUserList,
     RecvMsg(ChatMessage),
     SendMsg,
-    UserJoin,
-    UserQuit,
+    UserJoin(User),
+    UserQuit(User),
     UsersInit(UserList),
     Mute,
     Unmute,
@@ -53,9 +56,9 @@ impl Action {
     pub fn from_prefix_and_json(prefix: &str, json: &str) -> Action {
         match prefix {
             "MSG" => Action::RecvMsg(ChatMessage::from_json(json)),
-            "JOIN" => Action::UserJoin,
-            "QUIT" => Action::UserQuit,
-            "NAMES" => Action::UsersInit(UserList::from_json(json).unwrap()),
+            "JOIN" => Action::UserJoin(User::from_json(json)),
+            "QUIT" => Action::UserQuit(User::from_json(json)),
+            "NAMES" => Action::UsersInit(UserList::from_json(json)),
             "MUTE" => Action::Mute,
             "UNMUTE" => Action::Unmute,
             "BAN" => Action::Ban,
