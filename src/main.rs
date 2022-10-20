@@ -104,6 +104,7 @@ async fn main() -> Result<()> {
                         }
                     }
                     KeyCode::Up => state.chat_history_next(),
+                    KeyCode::Down => state.chat_history_prev(),
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
                     KeyCode::PageUp => state.dispatch(Action::ScrollUp),

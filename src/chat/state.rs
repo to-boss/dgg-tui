@@ -1,4 +1,4 @@
-use std::sync::mpsc::Sender;
+use std::{collections::VecDeque, sync::mpsc::Sender};
 
 use crate::ui::window::{Window, WindowList, WindowType};
 
@@ -13,7 +13,7 @@ pub struct State {
     pub message_to_send: Option<String>,
     pub windows: WindowList,
     pub debugs: Vec<String>,
-    pub chat_history: Vec<String>,
+    pub chat_history: VecDeque<String>,
     pub history_index: usize,
 }
 
@@ -23,7 +23,7 @@ impl State {
         let messages = Vec::new();
         let debugs = Vec::new();
         let chat_input = String::new();
-        let chat_history = Vec::with_capacity(50);
+        let chat_history = VecDeque::with_capacity(50);
         let history_index = 0;
         let windows = WindowList {
             windows: vec![
@@ -71,7 +71,7 @@ impl State {
     }
 
     pub fn add_to_chat_history(&mut self) {
-        self.chat_history.push(self.chat_input.to_owned());
+        self.chat_history.push_front(self.chat_input.to_owned());
         self.chat_input.clear();
     }
 
@@ -88,7 +88,18 @@ impl State {
             }
             None => {
                 self.history_index = 0;
-                self.chat_input = "".to_string();
+            }
+        }
+    }
+
+    pub fn chat_history_prev(&mut self) {
+        match self.chat_history.get(self.history_index) {
+            Some(hist) => {
+                self.history_index -= 1;
+                self.chat_input = hist.to_string();
+            }
+            None => {
+                self.history_index = 0;
             }
         }
     }

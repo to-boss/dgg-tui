@@ -1,7 +1,8 @@
 use std::sync::{mpsc::Sender, Arc, RwLock};
 
+use anyhow::bail;
 use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task::JoinHandle};
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
 
@@ -11,7 +12,6 @@ pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
     api_caller: ApiCaller,
     chat_msg_sender: futures::channel::mpsc::Sender<Message>,
-    running: Arc<RwLock<bool>>,
 }
 
 impl<'a> Network<'a> {
@@ -20,12 +20,10 @@ impl<'a> Network<'a> {
         chat_msg_sender: futures::channel::mpsc::Sender<Message>,
     ) -> Network {
         let api_caller = ApiCaller::new();
-        let running = Arc::new(RwLock::new(false));
         Network {
             state,
             api_caller,
             chat_msg_sender,
-            running,
         }
     }
 
@@ -59,10 +57,14 @@ impl<'a> Network<'a> {
 
         tokio::spawn(async move {
             loop {
-                if let Some(Ok(msg)) = read.next().await {
-                    if let Message::Text(text) = msg {
-                        io_sender.send(parse_msg(text)).unwrap();
-                    }
+                match read.next().await.unwrap() {
+                    Ok(msg) => match msg {
+                        Message::Text(text) => {
+                            io_sender.send(parse_msg(text)).unwrap();
+                        }
+                        _ => (),
+                    },
+                    Err(_) => break,
                 }
             }
         });
@@ -72,10 +74,7 @@ impl<'a> Network<'a> {
         });
     }
 
-    fn close(&mut self) {
-        let mut running = self.running.write().unwrap();
-        *running = true;
-    }
+    fn close(&mut self) {}
 
     async fn get_last_embeds(&mut self) {
         match self.api_caller.get_last_embeds().await {
