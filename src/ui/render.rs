@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use anyhow::Result;
 use tui::{
     backend::Backend,
@@ -22,23 +24,24 @@ pub fn draw<B: Backend>(
     state: &State,
     emote_list: &EmoteList,
     suggestions: &Suggestor,
+    windows: &mut WindowList,
 ) -> Result<()> {
-    let debug_active = state.windows.get(WindowType::Debug).active;
-    let userlist_active = state.windows.get(WindowType::UserList).active;
+    let debug_active = windows.get(WindowType::Debug).active;
+    let userlist_active = windows.get(WindowType::UserList).active;
     let size = f.size();
-    let chunks = get_chunks(&size, &state.windows);
+    let chunks = get_chunks(&size, windows);
 
     if debug_active == true && userlist_active == true {
-        render_debug(f, chunks[2], &state);
+        render_debug(f, chunks[2], &state, windows);
         render_users(f, chunks[3], &state);
     } else if debug_active {
-        render_debug(f, chunks[2], &state);
+        render_debug(f, chunks[2], &state, windows);
     } else if userlist_active {
         render_users(f, chunks[2], &state);
     }
 
     // Always render chat and chat_input
-    render_chat(f, chunks[0], &state, &emote_list)?;
+    render_chat(f, chunks[0], &state, &emote_list, windows)?;
     render_chat_input(f, chunks[1], &state, &suggestions);
 
     Ok(())
@@ -76,17 +79,23 @@ fn render_chat<B: Backend>(
     chunk: Rect,
     state: &State,
     emote_list: &EmoteList,
+    windows: &mut WindowList,
 ) -> Result<()> {
     // this is the absolute max of messages we can render
     //  we need to update this later because of line wraps!
-    let (height, start) = get_height_and_start(chunk, state.messages.len());
+    let height = (chunk.height - 2) as usize;
     let width = (chunk.width - 2) as usize;
+    let viewport = windows
+        .get_mut(WindowType::Chat)
+        .compute_viewport(height, state.messages.len());
 
-    let mut items: Vec<ListItem> =
-        get_chat_items(start, width, &state.username, &state.messages, &emote_list);
-
-    // Scroll to bottom
-    scroll_to_bottom(&mut items, height);
+    let items: Vec<ListItem> = get_chat_items(
+        viewport,
+        width,
+        &state.username,
+        &state.messages,
+        &emote_list,
+    );
 
     let chat_messages = List::new(items).block(
         Block::default()
@@ -99,10 +108,18 @@ fn render_chat<B: Backend>(
     Ok(())
 }
 
-fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
-    let (height, start) = get_height_and_start(chunk, state.debugs.len());
+fn render_debug<B: Backend>(
+    f: &mut Frame<B>,
+    chunk: Rect,
+    state: &State,
+    windows: &mut WindowList,
+) {
+    let height = (chunk.height - 2) as usize;
+    let viewport = windows
+        .get_mut(WindowType::Debug)
+        .compute_viewport(height, state.debugs.len());
 
-    let mut items: Vec<ListItem> = state.debugs[start..]
+    let items: Vec<ListItem> = state.debugs[viewport]
         .iter()
         .map(|msg| {
             let lines = textwrap::wrap(&msg, (chunk.width - 2) as usize);
@@ -131,9 +148,6 @@ fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
         .flatten()
         .collect();
 
-    // Scroll to bottom
-    scroll_to_bottom(&mut items, height);
-
     let debug_messages = List::new(items).block(
         Block::default()
             .style(Style::default().bg(Color::Black))
@@ -160,8 +174,6 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
             ListItem::new(line)
         })
         .collect();
-
-    scroll_to_bottom(&mut items, height);
 
     let chatter_names = List::new(items).block(
         Block::default()
@@ -223,13 +235,6 @@ fn get_chunks(size: &Rect, windows: &WindowList) -> Vec<Rect> {
     return vec![chat, chat_input];
 }
 
-fn scroll_to_bottom(items: &mut Vec<ListItem>, height: usize) {
-    if items.len() > height {
-        let diff = items.len() - height + 2;
-        items.drain(0..diff);
-    }
-}
-
 fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     let height = (chunk.height) as usize;
     let start = if list_len > height + 2 {
@@ -258,7 +263,7 @@ fn get_name_color_from_flair(features: &Vec<String>) -> Color {
 
 // Convert a Vec<ChatMessage> to a Vec<ListItem> with proper styling
 fn get_chat_items<'a>(
-    start: usize,
+    viewport: Range<usize>,
     width: usize,
     username: &'a str,
     messages: &Vec<ChatMessage>,
@@ -300,8 +305,8 @@ fn get_chat_items<'a>(
         ])
     }
 
-    messages[start..] // only render messages in view
-        .into_iter()
+    messages[viewport] // only render messages in view
+        .iter()
         .map(|m| {
             let name = &m.name;
             let ts = m.get_timestamp_str();
@@ -416,7 +421,7 @@ mod tests {
             state.username.to_string(),
             "x".repeat(100),
         )];
-        let _ = get_chat_items(0, 20, &state.username, &messages, &emote_list);
+        let _ = get_chat_items(0..20, 20, &state.username, &messages, &emote_list);
         // println!("{:#?}", _);
     }
 }

@@ -1,33 +1,51 @@
+use std::ops::Range;
+
 #[derive(PartialEq, Eq)]
 pub struct Window {
     pub window_type: WindowType,
     pub active: bool,
     pub auto_scroll: bool,
-    pub max_displays: u16,
-    pub scroll: u16,
+    pub scroll: i16,
 }
 
 impl Window {
-    pub fn new(window_type: WindowType, active: bool, max_displays: u16) -> Self {
+    pub fn new(window_type: WindowType, active: bool) -> Self {
         Window {
             window_type,
             active,
-            auto_scroll: false,
-            max_displays,
+            auto_scroll: true,
             scroll: 0,
         }
     }
 
-    pub fn scroll_to_bottom(&self) -> (u16, u16) {
-        (self.max_displays - 2, 0)
+    pub fn compute_viewport(&mut self, height: usize, list_len: usize) -> Range<usize> {
+        let mut start: i16 = 0;
+        let mut end = list_len as i16;
+
+        if self.auto_scroll {
+            if list_len > height {
+                self.scroll = (list_len - height) as i16;
+                start = self.scroll;
+            }
+        } else {
+            // handle start
+            if start + self.scroll >= 0 {
+                start += self.scroll;
+            }
+            // handle end
+            if end + self.scroll < list_len as i16 {
+                end += self.scroll;
+            }
+        }
+
+        start as usize..end as usize
     }
 
     pub fn scroll(&mut self, val: i16) {
-        let mut scroll = self.scroll as i16;
-        if scroll + val >= 0 {
-            scroll += val;
+        if self.scroll + val >= 0 {
+            self.scroll += val;
         }
-        self.scroll = scroll as u16;
+        self.auto_scroll = self.scroll < 1;
     }
 
     pub fn flip(&mut self) {
@@ -48,6 +66,16 @@ pub struct WindowList {
 }
 
 impl WindowList {
+    pub fn new() -> WindowList {
+        WindowList {
+            windows: vec![
+                Window::new(WindowType::Chat, true),
+                Window::new(WindowType::ChatInput, true),
+                Window::new(WindowType::Debug, false),
+                Window::new(WindowType::UserList, false),
+            ],
+        }
+    }
     pub fn get(&self, window_type: WindowType) -> &Window {
         self.windows
             .iter()

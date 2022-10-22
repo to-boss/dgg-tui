@@ -18,7 +18,7 @@ use dgg::network::Network;
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render;
 use dgg::ui::suggester::Suggestor;
-use dgg::ui::window::WindowType;
+use dgg::ui::window::{WindowList, WindowType};
 use tokio::sync::Mutex;
 use tui::{backend::CrosstermBackend, Terminal};
 use tungstenite::Message;
@@ -54,6 +54,8 @@ async fn main() -> Result<()> {
     let emote_list = EmoteList::new();
     let mut suggestor = Suggestor::new(&emote_list);
 
+    let mut windows = WindowList::new();
+
     // TODO make destiny.gg/api/chat/me work
     // state.dispatch(Action::GetMe);
     state.dispatch(Action::GetChatHistory);
@@ -61,7 +63,9 @@ async fn main() -> Result<()> {
 
     loop {
         let mut state = cloned_state.lock().await;
-        match terminal.draw(|f| render::draw(f, &state, &emote_list, &suggestor).unwrap()) {
+        match terminal
+            .draw(|f| render::draw(f, &state, &emote_list, &suggestor, &mut windows).unwrap())
+        {
             Ok(_) => (),
             Err(_) => break,
         }
@@ -125,11 +129,18 @@ async fn main() -> Result<()> {
                     KeyCode::Down => {
                         state.chat_input_history.prev();
                     }
-                    KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
-                    KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
-                    KeyCode::PageUp => (),
-                    KeyCode::PageDown => (),
-
+                    KeyCode::F(1) => windows.get_mut(WindowType::Debug).flip(),
+                    KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),
+                    KeyCode::PageUp => {
+                        windows.get_mut(WindowType::Chat).scroll(-1);
+                        let scroll = windows.get(WindowType::Chat).scroll.to_string();
+                        state.add_debug(scroll)
+                    }
+                    KeyCode::PageDown => {
+                        windows.get_mut(WindowType::Chat).scroll(1);
+                        let scroll = windows.get(WindowType::Chat).scroll.to_string();
+                        state.add_debug(scroll)
+                    }
                     _ => (),
                 }
             }

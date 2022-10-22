@@ -1,9 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use crate::ui::{
-    chat_input_history::ChatInputHistory,
-    window::{Window, WindowList, WindowType},
-};
+use crate::ui::chat_input_history::ChatInputHistory;
 
 use super::{action::Action, message::ChatMessage, user::UserList};
 
@@ -13,7 +10,6 @@ pub struct State {
     pub ul: UserList,
     pub messages: Vec<ChatMessage>,
     pub message_to_send: Option<String>,
-    pub windows: WindowList,
     pub debugs: Vec<String>,
     pub chat_input_history: ChatInputHistory,
 }
@@ -23,14 +19,6 @@ impl State {
         let ul = UserList::new();
         let messages = Vec::new();
         let debugs = Vec::new();
-        let windows = WindowList {
-            windows: vec![
-                Window::new(WindowType::Chat, true, max_messages),
-                Window::new(WindowType::ChatInput, true, 2),
-                Window::new(WindowType::Debug, false, 30),
-                Window::new(WindowType::UserList, false, 50),
-            ],
-        };
         let chat_input_history = ChatInputHistory::default();
 
         State {
@@ -38,7 +26,6 @@ impl State {
             username,
             ul,
             messages,
-            windows,
             message_to_send: None,
             debugs,
             chat_input_history,
@@ -55,14 +42,14 @@ impl State {
     }
 
     pub fn add_message(&mut self, msg: ChatMessage) {
-        if self.messages.len() >= self.windows.get(WindowType::Chat).max_displays.into() {
+        if self.messages.len() >= 200 {
             self.messages.drain(0..1);
         }
         self.messages.push(msg);
     }
 
     pub fn add_debug(&mut self, s: String) {
-        if self.debugs.len() >= self.windows.get(WindowType::Debug).max_displays.into() {
+        if self.debugs.len() >= 50 {
             self.debugs.drain(0..1);
         }
         self.debugs.push(format!("{}", s));
