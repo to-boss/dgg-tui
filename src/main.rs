@@ -12,7 +12,6 @@ use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
 use dgg::chat::command::parse_command_to_action;
 use dgg::chat::state::State;
-use dgg::chat::user::UserList;
 use dgg::config::Config;
 use dgg::network::Network;
 
@@ -92,7 +91,6 @@ async fn main() -> Result<()> {
                     KeyCode::Char(c) => {
                         state.chat_input_history.current_message.push(c);
                         suggestor.update(&state.ul, state.chat_input_history.get_current_word());
-                        // state.dispatch(Action::Err(suggestor.suggestions.join(",")));
                     }
                     KeyCode::Backspace => {
                         state.chat_input_history.current_message.pop();
@@ -119,6 +117,7 @@ async fn main() -> Result<()> {
                         } else {
                             state.dispatch(Action::SendMsg);
                         }
+                        suggestor.suggestions.clear();
                     }
                     KeyCode::Up => {
                         state.chat_input_history.next();
@@ -128,9 +127,8 @@ async fn main() -> Result<()> {
                     }
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
-                    KeyCode::PageUp => state.dispatch(Action::ScrollUp),
-
-                    KeyCode::PageDown => state.dispatch(Action::ScrollDown),
+                    KeyCode::PageUp => (),
+                    KeyCode::PageDown => (),
 
                     _ => (),
                 }

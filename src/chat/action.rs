@@ -7,11 +7,8 @@ use super::{
 
 #[derive(Debug)]
 pub enum Action {
-    Key(char),
     Stalk(String, u8),
     QuitApp,
-    ScrollUp,
-    ScrollDown,
     GetChatHistory,
     GetMe,
     GetEmbeds,

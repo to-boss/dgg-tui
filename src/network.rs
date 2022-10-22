@@ -49,7 +49,7 @@ impl<'a> Network<'a> {
             .body(())
             .unwrap();
 
-        let (ws_stream, response) = connect_async(request)
+        let (ws_stream, _) = connect_async(request)
             .await
             .expect("Failed to connect to WebSocket.");
 
@@ -113,6 +113,7 @@ impl<'a> Network<'a> {
                 chat_history
                     .into_iter()
                     .rev()
+                    .take(50)
                     .for_each(|msg| state.dispatch(parse_msg(msg)));
             }
             Err(err) => self.state.lock().await.add_error(err.to_string()),
@@ -142,17 +143,14 @@ impl<'a> Network<'a> {
     }
 
     pub async fn handle_io(&mut self, action: Action) {
-        // self.state.lock().await.add_debug(action.to_string());
+        self.state.lock().await.add_debug(action.to_string());
         match action {
-            Action::Key(_) => (),
+            Action::RecvMsg(chat_msg) => self.state.lock().await.add_message(chat_msg),
             Action::Stalk(name, num) => self.stalk(name, num).await,
             Action::QuitApp => self.close(),
-            Action::ScrollUp => (),
-            Action::ScrollDown => (),
             Action::GetChatHistory => self.get_chat_history().await,
             Action::GetMe => self.get_me().await,
             Action::GetEmbeds => self.get_last_embeds().await,
-            Action::RecvMsg(chat_msg) => self.state.lock().await.add_message(chat_msg),
             Action::SendMsg => self.send_chat_message().await,
             Action::UserJoin(user) => self.state.lock().await.ul.add(user),
             Action::UserQuit(user) => self.state.lock().await.ul.remove(user),

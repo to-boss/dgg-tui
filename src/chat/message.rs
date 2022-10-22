@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use time::OffsetDateTime;
-use tungstenite::Message;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ChatMessage {
@@ -40,12 +39,6 @@ impl ChatMessage {
         } else {
             format!("{}:{}", hour, minutes)
         }
-    }
-}
-
-impl From<Message> for ChatMessage {
-    fn from(msg: Message) -> ChatMessage {
-        ChatMessage::from_string("hi".to_string(), "hi".to_string())
     }
 }
 

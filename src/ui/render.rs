@@ -52,14 +52,22 @@ fn render_chat_input<B: Backend>(
 ) {
     let title = format!("Send:─{}", suggestions);
 
-    let input = Paragraph::new(state.chat_input_history.current_message.as_ref())
+    let start_range;
+    let mut cursor_x = chunk.x + state.chat_input_history.current_message.len() as u16 + 1;
+    if state.chat_input_history.current_message.len() < (chunk.width - 2).into() {
+        start_range = 0;
+    } else {
+        start_range = state.chat_input_history.current_message.len() - ((chunk.width - 2) as usize);
+        if start_range > (chunk.width - 2).into() {
+            cursor_x -= 1;
+        }
+    }
+
+    let input = Paragraph::new(&state.chat_input_history.current_message[start_range..])
         .style(Style::default().bg(Color::Black).fg(Color::White))
         .block(Block::default().borders(Borders::ALL).title(title));
-    f.set_cursor(
-        chunk.x + state.chat_input_history.current_message.len() as u16 + 1,
-        chunk.y + 1,
-    );
 
+    f.set_cursor(cursor_x, chunk.y + 1);
     f.render_widget(input, chunk);
 }
 
