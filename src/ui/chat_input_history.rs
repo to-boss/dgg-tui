@@ -28,6 +28,7 @@ impl ChatInputHistory {
     pub fn add(&mut self) {
         // don't add the message to the history if its the same
         if self.history.len() > 0 && self.history[0] == self.current_message {
+            self.current_message.clear();
             return;
         }
         if self.history.len() == self.max_messages {

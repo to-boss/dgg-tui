@@ -23,7 +23,6 @@ impl State {
         let ul = UserList::new();
         let messages = Vec::new();
         let debugs = Vec::new();
-        let chat_input = String::new();
         let windows = WindowList {
             windows: vec![
                 Window::new(WindowType::Chat, true, max_messages),

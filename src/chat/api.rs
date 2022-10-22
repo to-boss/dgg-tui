@@ -5,16 +5,21 @@ use std::{fmt::Display, time::Duration};
 use time::OffsetDateTime;
 use tokio::time::Instant;
 
-pub struct ApiCaller {
+pub struct ApiCaller<'a> {
     client: Client,
     timer: Instant,
+    token: &'a str,
 }
 
-impl ApiCaller {
-    pub fn new() -> ApiCaller {
+impl<'a> ApiCaller<'a> {
+    pub fn new(token: &'a str) -> ApiCaller<'a> {
         let client = reqwest::Client::default();
-        let timer = Instant::now();
-        ApiCaller { client, timer }
+        let timer = Instant::now() - Duration::from_secs(10);
+        ApiCaller {
+            client,
+            timer,
+            token,
+        }
     }
 
     fn check_timer(&mut self) -> Result<()> {
@@ -28,7 +33,6 @@ impl ApiCaller {
 
     pub async fn stalk(&mut self, username: String, size: u8) -> Result<Vec<Stalk>> {
         self.check_timer()?;
-
         let res = self
             .client
             .get(format!(
@@ -45,7 +49,7 @@ impl ApiCaller {
     }
 
     pub async fn get_last_embeds(&mut self) -> Result<Vec<Embed>> {
-        self.timer = Instant::now();
+        self.check_timer()?;
         let res = self
             .client
             .get("https://vyneer.me/tools/embeds?t=30")
@@ -58,6 +62,7 @@ impl ApiCaller {
         Ok(embeds)
     }
 
+    // TODO: parse them to ChatMessage
     pub async fn get_chat_history(&self) -> Result<Vec<String>> {
         let res = self
             .client
@@ -70,6 +75,40 @@ impl ApiCaller {
         let messages: Vec<String> = serde_json::from_str(&res)?;
         Ok(messages)
     }
+
+    pub async fn get_me(&self) -> Result<UserInfo> {
+        // WARNING
+        // res is not valid json i think
+        todo!();
+        let res = self
+            .client
+            .get(format!(
+                "https://www.destiny.gg/api/api/userinfo?token={}",
+                self.token
+            ))
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let user: UserInfo = serde_json::from_str(&res)?;
+        Ok(user)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserInfo {
+    pub nick: String,
+    pub username: String,
+    #[serde(rename(deserialize = "userId"))]
+    pub user_id: String,
+    #[serde(rename(deserialize = "status"))]
+    pub user_status: String,
+    #[serde(rename(deserialize = "createdDate"))]
+    pub created_date: String,
+    pub roles: Vec<String>,
+    pub features: Vec<String>,
+    pub team: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

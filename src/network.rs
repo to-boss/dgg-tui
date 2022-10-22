@@ -1,8 +1,7 @@
-use std::sync::{mpsc::Sender, Arc, RwLock};
+use std::sync::{mpsc::Sender, Arc};
 
-use anyhow::bail;
 use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
-use tokio::{sync::Mutex, task::JoinHandle};
+use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tungstenite::{handshake::client::Request, Message};
 
@@ -10,19 +9,22 @@ use crate::chat::{action::Action, api::ApiCaller, message::ChatMessage, state::S
 
 pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
-    api_caller: ApiCaller,
+    api_caller: ApiCaller<'a>,
+    token: &'a str,
     chat_msg_sender: futures::channel::mpsc::Sender<Message>,
 }
 
 impl<'a> Network<'a> {
     pub fn new(
+        token: &'a str,
         state: &'a Arc<Mutex<State>>,
         chat_msg_sender: futures::channel::mpsc::Sender<Message>,
     ) -> Network {
-        let api_caller = ApiCaller::new();
+        let api_caller = ApiCaller::new(&token);
         Network {
             state,
             api_caller,
+            token,
             chat_msg_sender,
         }
     }
@@ -32,9 +34,6 @@ impl<'a> Network<'a> {
         io_sender: Sender<Action>,
         chat_recv: Receiver<Message>,
     ) {
-        let token =
-            String::from("251rLOxzq4M9GSsW52DVIZVFvGqDhOSP4wG7pMkTYJO0VH5l32FKQoQOuzuduhGt");
-
         let request = Request::builder()
             .header("Host", "chat.destiny.gg")
             .header("Origin", "https://www.destiny.gg")
@@ -45,7 +44,7 @@ impl<'a> Network<'a> {
                 "Sec-WebSocket-Key",
                 tungstenite::handshake::client::generate_key(),
             )
-            .header("cookie", format!("authtoken={}", token))
+            .header("cookie", format!("authtoken={}", self.token))
             .uri("wss://destiny.gg/ws")
             .body(())
             .unwrap();
@@ -112,8 +111,17 @@ impl<'a> Network<'a> {
                 let state = self.state.lock().await;
                 chat_history
                     .into_iter()
-                    .take(50)
+                    .rev()
                     .for_each(|msg| state.dispatch(parse_msg(msg)));
+            }
+            Err(err) => self.state.lock().await.add_error(err.to_string()),
+        }
+    }
+
+    async fn get_me(&self) {
+        match self.api_caller.get_me().await {
+            Ok(me) => {
+                self.state.lock().await.username = me.username;
             }
             Err(err) => self.state.lock().await.add_error(err.to_string()),
         }
@@ -141,6 +149,7 @@ impl<'a> Network<'a> {
             Action::ScrollUp => (),
             Action::ScrollDown => (),
             Action::GetChatHistory => self.get_chat_history().await,
+            Action::GetMe => self.get_me().await,
             Action::GetEmbeds => self.get_last_embeds().await,
             Action::ChangeDebug => (),
             Action::ChangeUserList => (),

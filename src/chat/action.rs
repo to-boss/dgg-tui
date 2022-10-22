@@ -13,6 +13,7 @@ pub enum Action {
     ScrollUp,
     ScrollDown,
     GetChatHistory,
+    GetMe,
     GetEmbeds,
     ChangeDebug,
     ChangeUserList,

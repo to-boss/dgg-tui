@@ -1,4 +1,5 @@
-use std::io;
+use std::fs::File;
+use std::io::{self, BufReader};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -11,7 +12,9 @@ use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
 use dgg::chat::command::parse_command_to_action;
 use dgg::chat::state::State;
+use dgg::config::Config;
 use dgg::network::Network;
+
 use dgg::ui::emotes::EmoteList;
 use dgg::ui::render;
 use dgg::ui::suggester::Suggestor;
@@ -22,25 +25,21 @@ use tungstenite::Message;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // custom_panic();
+    let config = read_user_data_from_file()?;
 
     let (chat_msg_sender, chat_msg_recv) = futures::channel::mpsc::channel(1);
     let (io_sender, io_recv) = std::sync::mpsc::channel();
     let io_sender_2 = io_sender.clone();
 
-    let state = Arc::new(Mutex::new(State::new(
-        200,
-        "onlyclose".to_string(),
-        io_sender,
-    )));
+    let state = Arc::new(Mutex::new(State::new(200, config.name, io_sender)));
     let cloned_state = Arc::clone(&state);
 
+    // Network Thread
     std::thread::spawn(move || {
-        let mut network = Network::new(&state, chat_msg_sender);
+        let mut network = Network::new(&config.token, &state, chat_msg_sender);
         start_tokio(io_recv, io_sender_2, chat_msg_recv, &mut network);
     });
 
-    // init()?;
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, Hide, EnterAlternateScreen)?;
@@ -53,11 +52,13 @@ async fn main() -> Result<()> {
     let tick_rate = Duration::from_millis(100);
     let last_tick = Instant::now();
 
+    let emote_list = EmoteList::new();
     let state = cloned_state.lock().await;
+
+    // TODO make destiny.gg/api/chat/me work
+    // state.dispatch(Action::GetMe);
     state.dispatch(Action::GetChatHistory);
     drop(state);
-
-    let emote_list = EmoteList::new();
 
     loop {
         let mut state = cloned_state.lock().await;
@@ -143,15 +144,11 @@ async fn start_tokio(
     }
 }
 
-fn custom_panic() {
-    // #[cfg(not(debug_assertions))]
-    // panic::set_hook(Box::new(|_| {
-    //     println!("");
-    // }));
+fn read_user_data_from_file() -> Result<Config> {
+    let file = File::open("config.json")?;
+    let reader = BufReader::new(file);
 
-    // #[cfg(debug_assertions)]
-    // panic::set_hook(Box::new(|panic_info| {
-    //     let _ = close();
-    //     println!("{}", panic_info);
-    // }))
+    let config: Config = serde_json::from_reader(reader)?;
+
+    Ok(config)
 }
