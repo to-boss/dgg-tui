@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
                         code: KeyCode::Backspace,
                         modifiers: KeyModifiers::CONTROL,
                         ..
-                    } => state.chat_input.clear(),
+                    } => state.chat_input_history.current_message.clear(),
                     _ => (),
                 }
 
@@ -88,27 +88,36 @@ async fn main() -> Result<()> {
                         state.dispatch(Action::QuitApp);
                         break;
                     }
-                    KeyCode::Char(c) => state.chat_input.push(c),
+                    KeyCode::Char(c) => state.chat_input_history.current_message.push(c),
                     KeyCode::Backspace => {
-                        state.chat_input.pop();
+                        state.chat_input_history.current_message.pop();
                     }
                     KeyCode::Enter => {
-                        if state.chat_input.starts_with("/") {
-                            match parse_command_to_action(&state.chat_input) {
+                        if state.chat_input_history.current_message.starts_with("/") {
+                            match parse_command_to_action(&state.chat_input_history.current_message)
+                            {
                                 Ok(action) => state.dispatch(action),
                                 Err(err) => state.add_error(err.to_string()),
                             }
-                            state.add_to_chat_history();
+                            state.chat_input_history.add();
                         } else {
                             state.dispatch(Action::SendMsg);
                         }
                     }
-                    KeyCode::Up => state.chat_history_next(),
-                    KeyCode::Down => state.chat_history_prev(),
+                    KeyCode::Up => {
+                        state.chat_input_history.next();
+                        state.dispatch(Action::Err(state.chat_input_history.index.to_string()));
+                    }
+                    KeyCode::Down => {
+                        state.chat_input_history.prev();
+                        state.dispatch(Action::Err(state.chat_input_history.index.to_string()));
+                    }
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
                     KeyCode::PageUp => state.dispatch(Action::ScrollUp),
+
                     KeyCode::PageDown => state.dispatch(Action::ScrollDown),
+
                     _ => (),
                 }
             }

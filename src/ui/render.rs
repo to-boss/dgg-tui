@@ -39,10 +39,13 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, state: &State, emote_list: &EmoteList)
 }
 
 fn render_chat_input<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
-    let input = Paragraph::new(state.chat_input.as_ref())
+    let input = Paragraph::new(state.chat_input_history.current_message.as_ref())
         .style(Style::default().bg(Color::Black).fg(Color::White))
         .block(Block::default().borders(Borders::ALL).title("Send"));
-    f.set_cursor(chunk.x + state.chat_input.len() as u16 + 1, chunk.y + 1);
+    f.set_cursor(
+        chunk.x + state.chat_input_history.current_message.len() as u16 + 1,
+        chunk.y + 1,
+    );
 
     f.render_widget(input, chunk);
 }

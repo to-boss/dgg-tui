@@ -121,8 +121,11 @@ impl<'a> Network<'a> {
 
     async fn send_chat_message(&mut self) {
         let mut state = self.state.lock().await;
-        let msg = format!(r#"MSG {{"data":"{}"}}"#, state.chat_input);
-        state.add_to_chat_history();
+        let msg = format!(
+            r#"MSG {{"data":"{}"}}"#,
+            state.chat_input_history.current_message
+        );
+        state.chat_input_history.add();
         drop(state);
 
         let msg = Message::Text(msg);
@@ -130,7 +133,7 @@ impl<'a> Network<'a> {
     }
 
     pub async fn handle_io(&mut self, action: Action) {
-        self.state.lock().await.add_debug(action.to_string());
+        // self.state.lock().await.add_debug(action.to_string());
         match action {
             Action::Key(_) => (),
             Action::Stalk(name, num) => self.stalk(name, num).await,
