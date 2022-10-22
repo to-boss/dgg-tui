@@ -8,7 +8,7 @@ use tui::{
     Frame,
 };
 
-use crate::chat::{features::Feature, state::State};
+use crate::chat::{features::Feature, message::ChatMessage, state::State};
 
 use super::{
     emotes::EmoteList,
@@ -32,7 +32,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, state: &State, emote_list: &EmoteList)
     }
 
     // Always render chat and chat_input
-    render_chat(f, chunks[0], &state, &emote_list);
+    render_chat(f, chunks[0], &state, &emote_list)?;
     render_chat_input(f, chunks[1], &state);
 
     Ok(())
@@ -48,6 +48,34 @@ fn render_chat_input<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
     );
 
     f.render_widget(input, chunk);
+}
+
+fn render_chat<B: Backend>(
+    f: &mut Frame<B>,
+    chunk: Rect,
+    state: &State,
+    emote_list: &EmoteList,
+) -> Result<()> {
+    // this is the absolute max of messages we can render
+    //  we need to update this later because of line wraps!
+    let (height, start) = get_height_and_start(chunk, state.messages.len());
+    let width = (chunk.width - 2) as usize;
+
+    let mut items: Vec<ListItem> =
+        get_chat_items(start, width, &state.username, &state.messages, &emote_list);
+
+    // Scroll to bottom
+    scroll_to_bottom(&mut items, height);
+
+    let chat_messages = List::new(items).block(
+        Block::default()
+            .style(Style::default().bg(Color::Black))
+            .borders(Borders::ALL)
+            .title("DGG-Chat"),
+    );
+    f.render_widget(chat_messages, chunk);
+
+    Ok(())
 }
 
 fn render_debug<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
@@ -122,152 +150,6 @@ fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
     );
 
     f.render_widget(chatter_names, chunk);
-}
-
-fn render_chat<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State, emote_list: &EmoteList) {
-    fn render_chat_line<'a>(
-        name: &str,
-        pm: &str,
-        timestamp: &str,
-        bg_color: Color,
-        message_color: Color,
-        name_color: Color,
-        modifier: Modifier,
-    ) -> Spans<'a> {
-        // Each line has 4 components which can be styled differently
-        // [time] [name ][: ] [rest of message]
-        Spans::from(vec![
-            Span::styled(format!("[{}] ", timestamp), Style::default()),
-            Span::styled(
-                format!("{}", name),
-                Style::default()
-                    .fg(name_color)
-                    .bg(bg_color)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                ": ",
-                Style::default()
-                    .bg(bg_color)
-                    .remove_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                format!("{}", pm),
-                Style::default()
-                    .fg(message_color)
-                    .bg(bg_color)
-                    .add_modifier(modifier),
-            ),
-        ])
-    }
-    // this is the absolute max of messages we can render
-    //  we need to update this later because of line wraps!
-    let (height, start) = get_height_and_start(chunk, state.messages.len());
-
-    let mut items: Vec<ListItem> = state.messages[start..] // only render messages in view
-        .iter()
-        .map(|m| {
-            let name = &m.name;
-            let ts = m.get_timestamp_str();
-            let mut words: Vec<&str> = m.message.split_whitespace().collect();
-
-            // Replace Emote Strings in Message
-            let pm = parse_emotes(&mut words, emote_list);
-
-            // Default styles
-            let mut message_color = Color::White;
-            let mut bg_color = Color::Black;
-            let mut modifier = Modifier::empty();
-
-            // Handle Name
-            let mut name_color = get_name_color_from_flair(&m.features);
-
-            // Handle Greentext
-            if pm.starts_with(">") {
-                message_color = Color::Green;
-            }
-
-            // Handle Name Hightlight own Message
-            if name == &state.username {
-                bg_color = Color::Rgb(50, 50, 50);
-            }
-
-            // Handle Highlight other Message
-            if pm.contains(&state.username) {
-                bg_color = Color::Rgb(10, 40, 60);
-            }
-
-            // Handle nsfw messages
-            // TODO: only mark nsfw when a link is found
-            if words
-                .iter()
-                .any(|word| word.len() == 4 && word.to_lowercase() == "nsfw")
-            {
-                modifier = Modifier::UNDERLINED;
-                bg_color = Color::LightMagenta;
-            }
-
-            if name.eq("STALK") || name.eq("EMBED") {
-                name_color = Color::Rgb(250, 0, 140);
-                bg_color = Color::Rgb(50, 50, 50);
-            }
-
-            if name.eq("ERROR") {
-                name_color = Color::LightRed;
-                bg_color = Color::Rgb(50, 50, 50);
-            }
-
-            // Handle Line Wraps
-            let full_line = format!("[{}] {}: {}", ts, name, pm);
-            let lines = textwrap::wrap(&full_line, (chunk.width - 2) as usize);
-
-            // TODO: How to wrap really long messages with no spaces?
-            let first_line_length = lines[0].len() - 8 - name.len() - 2;
-
-            let line = render_chat_line(
-                &name,
-                &pm[..first_line_length],
-                &ts,
-                bg_color,
-                message_color,
-                name_color,
-                modifier,
-            );
-
-            if lines.len() > 1 {
-                let mut spans = Vec::with_capacity(lines.len());
-                let mut extra_lines: Vec<ListItem> = lines
-                    .iter()
-                    .skip(1) // Skip the first line, it's already handled
-                    .map(|l| {
-                        ListItem::new(Span::styled(
-                            format!("{}", l),
-                            Style::default().fg(message_color).bg(bg_color),
-                        ))
-                    })
-                    .collect();
-
-                spans.push(ListItem::new(line));
-                spans.append(&mut extra_lines);
-
-                spans
-            } else {
-                vec![ListItem::new(line)]
-            }
-        })
-        .flatten()
-        .collect();
-
-    // Scroll to bottom
-    scroll_to_bottom(&mut items, height);
-
-    let chat_messages = List::new(items).block(
-        Block::default()
-            .style(Style::default().bg(Color::Black))
-            .borders(Borders::ALL)
-            .title("DGG-Chat"),
-    );
-    f.render_widget(chat_messages, chunk);
 }
 
 // Deals with splitting the chunks into the right size for the different windows
@@ -353,39 +235,166 @@ fn get_name_color_from_flair(features: &Vec<String>) -> Color {
     }
 }
 
+// Convert a Vec<ChatMessage> to a Vec<ListItem> with proper styling
+fn get_chat_items<'a>(
+    start: usize,
+    width: usize,
+    username: &'a str,
+    messages: &Vec<ChatMessage>,
+    emote_list: &EmoteList,
+) -> Vec<ListItem<'a>> {
+    fn render_chat_line<'a>(
+        name: &str,
+        pm: &str,
+        timestamp: &str,
+        bg_color: Color,
+        message_color: Color,
+        name_color: Color,
+        modifier: Modifier,
+    ) -> Spans<'a> {
+        // Each line has 4 components which can be styled differently
+        // [time] [name ][: ] [rest of message]
+        Spans::from(vec![
+            Span::styled(format!("[{}] ", timestamp), Style::default()),
+            Span::styled(
+                format!("{}", name),
+                Style::default()
+                    .fg(name_color)
+                    .bg(bg_color)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                ": ",
+                Style::default()
+                    .bg(bg_color)
+                    .remove_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("{}", pm),
+                Style::default()
+                    .fg(message_color)
+                    .bg(bg_color)
+                    .add_modifier(modifier),
+            ),
+        ])
+    }
+
+    messages[start..] // only render messages in view
+        .into_iter()
+        .map(|m| {
+            let name = &m.name;
+            let ts = m.get_timestamp_str();
+            let mut words: Vec<&str> = m.message.split_whitespace().collect();
+
+            // Replace Emote Strings in Message
+            let pm = parse_emotes(&mut words, emote_list);
+
+            // Default styles
+            let mut message_color = Color::White;
+            let mut bg_color = Color::Black;
+            let mut modifier = Modifier::empty();
+
+            // Handle Name
+            let mut name_color = get_name_color_from_flair(&m.features);
+
+            // Handle Greentext
+            if pm.starts_with(">") {
+                message_color = Color::Green;
+            }
+
+            // Handle Name Hightlight own Message
+            if name == username {
+                bg_color = Color::Rgb(50, 50, 50);
+            }
+
+            // Handle Highlight other Message
+            if pm.contains(username) {
+                bg_color = Color::Rgb(10, 40, 60);
+            }
+
+            // Handle nsfw messages
+            // TODO: only mark nsfw when a link is found
+            if words
+                .iter()
+                .any(|word| word.len() == 4 && word.to_lowercase() == "nsfw")
+            {
+                modifier = Modifier::UNDERLINED;
+                bg_color = Color::LightMagenta;
+            }
+
+            if name.eq("STALK") || name.eq("EMBED") {
+                name_color = Color::Rgb(250, 0, 140);
+                bg_color = Color::Rgb(50, 50, 50);
+            }
+
+            if name.eq("ERROR") {
+                name_color = Color::LightRed;
+                bg_color = Color::Rgb(50, 50, 50);
+            }
+
+            // Handle Line Wraps
+            let full_line = format!("[{}] {}: {}", ts, name, pm);
+            let lines = textwrap::wrap(&full_line, width);
+
+            // Text wrapping of really long messages
+            // ([12:00] onlyclose: ).len() is 10
+            let first_line_length;
+            if lines[0].len() - name.len() < 10 {
+                first_line_length = lines[0].len() - name.len() - 9;
+            } else {
+                first_line_length = lines[0].len() - name.len() - 10;
+            }
+
+            let line = render_chat_line(
+                &name,
+                &pm[..first_line_length],
+                &ts,
+                bg_color,
+                message_color,
+                name_color,
+                modifier,
+            );
+
+            if lines.len() > 1 {
+                let mut spans = Vec::with_capacity(lines.len());
+                let mut extra_lines: Vec<ListItem> = lines
+                    .iter()
+                    .skip(1) // Skip the first line, it's already handled
+                    .map(|l| {
+                        ListItem::new(Span::styled(
+                            format!("{}", l),
+                            Style::default().fg(message_color).bg(bg_color),
+                        ))
+                    })
+                    .collect();
+
+                spans.push(ListItem::new(line));
+                spans.append(&mut extra_lines);
+                spans
+            } else {
+                vec![ListItem::new(line)]
+            }
+        })
+        .flatten()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use std::io::stdout;
-
-    use time::OffsetDateTime;
-    use tui::{backend::CrosstermBackend, Terminal};
-
-    use crate::chat::message::ChatMessage;
+    use std::sync::mpsc::channel;
 
     use super::*;
 
     #[test]
     fn really_long_message_no_whitespace() {
-        let msg = String::from("testsadfwqrekqweoriuwqerpoiwequropiqwuroipwquropiwqeuropwiqeruwoipqruoqpiwruqpwoiruopqwiuropiqwuropqiwurqowpiruqowpiru");
-        let message = ChatMessage {
-            message: msg,
-            features: vec![],
-            name: "COCK".to_string(),
-            timestamp: OffsetDateTime::now_utc(),
-        };
+        let (sender, _) = channel();
+        let state = State::new(100, "onlyclose".to_string(), sender);
         let emote_list = EmoteList::new();
-        let backend = CrosstermBackend::new(stdout());
-        let mut terminal = Terminal::new(backend).unwrap();
-        // let state = Arc::new(Mutex::new(State::new(10, "COCK".to_string())));
-        // state.lock().unwrap().add_message(message);
-        // let rect = Rect {
-        //     x: 10,
-        //     y: 10,
-        //     width: 30,
-        //     height: 10,
-        // };
-        // terminal
-        //     .draw(|f| render_chat(f, rect, &state.lock().unwrap(), &emote_list))
-        //     .unwrap();
+        let messages = vec![ChatMessage::from_string(
+            state.username.to_string(),
+            "x".repeat(100),
+        )];
+        let _ = get_chat_items(0, 20, &state.username, &messages, &emote_list);
+        // println!("{:#?}", _);
     }
 }
