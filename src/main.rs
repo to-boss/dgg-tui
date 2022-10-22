@@ -12,6 +12,7 @@ use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
 use dgg::chat::command::parse_command_to_action;
 use dgg::chat::state::State;
+use dgg::chat::user::UserList;
 use dgg::config::Config;
 use dgg::network::Network;
 
@@ -47,13 +48,12 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
-    // let mut suggestor = Suggestor::new(&emote_list);
-
     let tick_rate = Duration::from_millis(100);
     let last_tick = Instant::now();
 
-    let emote_list = EmoteList::new();
     let state = cloned_state.lock().await;
+    let emote_list = EmoteList::new();
+    let mut suggestor = Suggestor::new(&emote_list);
 
     // TODO make destiny.gg/api/chat/me work
     // state.dispatch(Action::GetMe);
@@ -89,9 +89,24 @@ async fn main() -> Result<()> {
                         state.dispatch(Action::QuitApp);
                         break;
                     }
-                    KeyCode::Char(c) => state.chat_input_history.current_message.push(c),
+                    KeyCode::Char(c) => {
+                        state.chat_input_history.current_message.push(c);
+                        suggestor.update(&state.ul, state.chat_input_history.get_current_word());
+                        state.dispatch(Action::Err(suggestor.suggestions.join(",")));
+                    }
                     KeyCode::Backspace => {
                         state.chat_input_history.current_message.pop();
+                        suggestor.update(&state.ul, state.chat_input_history.get_current_word());
+                    }
+                    KeyCode::Tab => {
+                        // Autocomplete: delete the current word and add the suggestion
+                        if suggestor.suggestions.len() > 0 {
+                            state.chat_input_history.delete_current_word();
+                            state
+                                .chat_input_history
+                                .current_message
+                                .push_str(suggestor.get())
+                        }
                     }
                     KeyCode::Enter => {
                         if state.chat_input_history.current_message.starts_with("/") {

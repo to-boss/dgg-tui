@@ -25,6 +25,38 @@ impl ChatInputHistory {
         }
     }
 
+    pub fn delete_current_word(&mut self) {
+        let index_back = self
+            .current_message
+            .chars()
+            .rev()
+            .position(|c| c.is_whitespace());
+
+        match index_back {
+            Some(index) => {
+                let index_front = self.current_message.len() - index;
+                self.current_message = self.current_message[..index_front].to_string();
+            }
+            None => self.current_message.clear(),
+        }
+    }
+
+    pub fn get_current_word(&self) -> String {
+        let index_back = self
+            .current_message
+            .chars()
+            .rev()
+            .position(|c| c.is_whitespace());
+
+        match index_back {
+            Some(index) => {
+                let index_front = self.current_message.len() - index;
+                self.current_message[index_front..].to_string()
+            }
+            None => self.current_message[..].to_string(),
+        }
+    }
+
     pub fn add(&mut self) {
         // don't add the message to the history if its the same
         if self.history.len() > 0 && self.history[0] == self.current_message {
@@ -76,5 +108,42 @@ impl ChatInputHistory {
 
     pub fn index(&self) -> usize {
         self.index as usize
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_word_test() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello whats up");
+        let last_word = cih.get_current_word();
+        assert_eq!(last_word, "up");
+    }
+
+    #[test]
+    fn get_word_test_only_one_word() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello");
+        let last_word = cih.get_current_word();
+        assert_eq!(last_word, "hello");
+    }
+
+    #[test]
+    fn delete_current_word() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello whats up");
+        cih.delete_current_word();
+        assert_eq!(cih.current_message, "hello whats ");
+    }
+
+    #[test]
+    fn delete_current_word_only_one_word() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello");
+        cih.delete_current_word();
+        assert_eq!(cih.current_message, "");
     }
 }

@@ -151,8 +151,6 @@ impl<'a> Network<'a> {
             Action::GetChatHistory => self.get_chat_history().await,
             Action::GetMe => self.get_me().await,
             Action::GetEmbeds => self.get_last_embeds().await,
-            Action::ChangeDebug => (),
-            Action::ChangeUserList => (),
             Action::RecvMsg(chat_msg) => self.state.lock().await.add_message(chat_msg),
             Action::SendMsg => self.send_chat_message().await,
             Action::UserJoin(user) => self.state.lock().await.ul.add(user),

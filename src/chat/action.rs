@@ -15,8 +15,6 @@ pub enum Action {
     GetChatHistory,
     GetMe,
     GetEmbeds,
-    ChangeDebug,
-    ChangeUserList,
     RecvMsg(ChatMessage),
     SendMsg,
     UserJoin(User),
