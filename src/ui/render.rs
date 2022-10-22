@@ -337,7 +337,8 @@ fn get_chat_items<'a>(
             let lines = textwrap::wrap(&full_line, width);
 
             // Text wrapping of really long messages
-            // ([12:00] onlyclose: ).len() is 10
+            // "[12:00] : ".len() is 10, i think the wrapper strips the whitespace after the :
+            // to the next line when dealing with really long messages
             let first_line_length;
             if lines[0].len() - name.len() < 10 {
                 first_line_length = lines[0].len() - name.len() - 9;

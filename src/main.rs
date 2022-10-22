@@ -106,11 +106,9 @@ async fn main() -> Result<()> {
                     }
                     KeyCode::Up => {
                         state.chat_input_history.next();
-                        state.dispatch(Action::Err(state.chat_input_history.index.to_string()));
                     }
                     KeyCode::Down => {
                         state.chat_input_history.prev();
-                        state.dispatch(Action::Err(state.chat_input_history.index.to_string()));
                     }
                     KeyCode::F(1) => state.windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => state.windows.get_mut(WindowType::UserList).flip(),
@@ -126,7 +124,6 @@ async fn main() -> Result<()> {
         thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
     }
 
-    // close()?;
     let mut stdout = io::stdout();
     execute!(stdout, Show, LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
