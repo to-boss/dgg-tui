@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
                         code: KeyCode::Backspace,
                         modifiers: KeyModifiers::CONTROL,
                         ..
-                    } => state.chat_input_history.current_message.clear(),
+                    } => state.chat_input_history.delete_current_word(),
                     _ => (),
                 }
 
