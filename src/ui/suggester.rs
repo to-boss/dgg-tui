@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::chat::user::UserList;
 
 use super::emotes::EmoteList;
@@ -34,28 +36,42 @@ impl<'a> Suggestor<'a> {
     }
 
     pub fn update(&mut self, user_list: &UserList, current_word: String) {
-        self.current_word = current_word.to_lowercase();
+        if current_word.len() == 0 {
+            self.suggestions.clear();
+        } else {
+            self.current_word = current_word.to_lowercase();
 
-        let mut emote_suggestions: Vec<String> = self
-            .emote_list
-            .emotes
-            .iter()
-            .filter(|emote| emote.name.to_lowercase().starts_with(&self.current_word))
-            .take(10)
-            .map(|emote| emote.name.to_string())
-            .collect();
+            let mut emote_suggestions: Vec<String> = self
+                .emote_list
+                .emotes
+                .iter()
+                .filter(|emote| emote.name.to_lowercase().starts_with(&self.current_word))
+                .take(10)
+                .map(|emote| emote.name.to_string())
+                .collect();
 
-        let mut username_suggestions: Vec<String> = user_list
-            .users
-            .iter()
-            .filter(|user| user.name.to_lowercase().starts_with(&self.current_word))
-            .take(10)
-            .map(|user| user.name.to_string())
-            .collect();
+            let mut username_suggestions: Vec<String> = user_list
+                .users
+                .iter()
+                .filter(|user| user.name.to_lowercase().starts_with(&self.current_word))
+                .take(10)
+                .map(|user| user.name.to_string())
+                .collect();
 
-        // usernames get recommended before emotes!
-        username_suggestions.append(&mut emote_suggestions);
-        self.suggestions = username_suggestions;
-        self.index = 0;
+            // usernames get recommended before emotes!
+            username_suggestions.append(&mut emote_suggestions);
+            self.suggestions = username_suggestions;
+            self.index = 0;
+        }
+    }
+}
+
+impl Display for Suggestor<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.suggestions.len() > 0 {
+            write!(f, " {} ", self.suggestions.join(" | "))
+        } else {
+            write!(f, "─")
+        }
     }
 }

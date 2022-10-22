@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
 
     loop {
         let mut state = cloned_state.lock().await;
-        match terminal.draw(|f| render::draw(f, &state, &emote_list).unwrap()) {
+        match terminal.draw(|f| render::draw(f, &state, &emote_list, &suggestor).unwrap()) {
             Ok(_) => (),
             Err(_) => break,
         }
@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
                     KeyCode::Char(c) => {
                         state.chat_input_history.current_message.push(c);
                         suggestor.update(&state.ul, state.chat_input_history.get_current_word());
-                        state.dispatch(Action::Err(suggestor.suggestions.join(",")));
+                        // state.dispatch(Action::Err(suggestor.suggestions.join(",")));
                     }
                     KeyCode::Backspace => {
                         state.chat_input_history.current_message.pop();

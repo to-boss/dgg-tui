@@ -13,10 +13,16 @@ use crate::chat::{features::Feature, message::ChatMessage, state::State};
 use super::{
     emotes::EmoteList,
     parser::{parse_emotes, parse_flair},
+    suggester::Suggestor,
     window::{WindowList, WindowType},
 };
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, state: &State, emote_list: &EmoteList) -> Result<()> {
+pub fn draw<B: Backend>(
+    f: &mut Frame<B>,
+    state: &State,
+    emote_list: &EmoteList,
+    suggestions: &Suggestor,
+) -> Result<()> {
     let debug_active = state.windows.get(WindowType::Debug).active;
     let userlist_active = state.windows.get(WindowType::UserList).active;
     let size = f.size();
@@ -33,15 +39,22 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, state: &State, emote_list: &EmoteList)
 
     // Always render chat and chat_input
     render_chat(f, chunks[0], &state, &emote_list)?;
-    render_chat_input(f, chunks[1], &state);
+    render_chat_input(f, chunks[1], &state, &suggestions);
 
     Ok(())
 }
 
-fn render_chat_input<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
+fn render_chat_input<B: Backend>(
+    f: &mut Frame<B>,
+    chunk: Rect,
+    state: &State,
+    suggestions: &Suggestor,
+) {
+    let title = format!("Send:─{}", suggestions);
+
     let input = Paragraph::new(state.chat_input_history.current_message.as_ref())
         .style(Style::default().bg(Color::Black).fg(Color::White))
-        .block(Block::default().borders(Borders::ALL).title("Send"));
+        .block(Block::default().borders(Borders::ALL).title(title));
     f.set_cursor(
         chunk.x + state.chat_input_history.current_message.len() as u16 + 1,
         chunk.y + 1,

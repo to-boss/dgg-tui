@@ -49,9 +49,10 @@ impl<'a> Network<'a> {
             .body(())
             .unwrap();
 
-        let (ws_stream, _) = connect_async(request)
+        let (ws_stream, response) = connect_async(request)
             .await
             .expect("Failed to connect to WebSocket.");
+
         let (write, mut read) = ws_stream.split();
 
         tokio::spawn(async move {
