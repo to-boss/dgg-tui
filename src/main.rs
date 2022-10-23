@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
                             state
                                 .chat_input_history
                                 .current_message
-                                .push_str(suggestor.get())
+                                .push_str(&suggestor.get())
                         }
                     }
                     KeyCode::Enter => {

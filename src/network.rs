@@ -60,7 +60,7 @@ impl<'a> Network<'a> {
                 match read.next().await.unwrap() {
                     Ok(msg) => match msg {
                         Message::Text(text) => {
-                            io_sender.send(parse_msg(text)).unwrap();
+                            io_sender.send(parse_msg(&text)).unwrap();
                         }
                         _ => (),
                     },
@@ -110,10 +110,8 @@ impl<'a> Network<'a> {
         match self.api_caller.get_chat_history().await {
             Ok(chat_history) => {
                 let state = self.state.lock().await;
-                chat_history
+                chat_history[chat_history.len() - 50..]
                     .into_iter()
-                    .rev()
-                    .take(50)
                     .for_each(|msg| state.dispatch(parse_msg(msg)));
             }
             Err(err) => self.state.lock().await.add_error(err.to_string()),
@@ -176,7 +174,7 @@ impl<'a> Network<'a> {
     }
 }
 
-pub fn parse_msg(msg: String) -> Action {
+pub fn parse_msg(msg: &String) -> Action {
     let msg_splits: Vec<String> = msg
         .to_string()
         .splitn(2, " ")

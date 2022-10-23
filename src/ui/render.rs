@@ -16,7 +16,7 @@ use super::{
     emotes::EmoteList,
     parser::{parse_emotes, parse_flair},
     suggester::Suggestor,
-    window::{WindowList, WindowType},
+    window::{Window, WindowList, WindowType},
 };
 
 pub fn draw<B: Backend>(
@@ -41,7 +41,8 @@ pub fn draw<B: Backend>(
     }
 
     // Always render chat and chat_input
-    render_chat(f, chunks[0], &state, &emote_list, windows)?;
+    let mut chat_window = windows.get_mut(WindowType::Chat);
+    render_chat(f, chunks[0], &state, &emote_list, &mut chat_window)?;
     render_chat_input(f, chunks[1], &state, &suggestions);
 
     Ok(())
@@ -80,7 +81,7 @@ fn render_chat<B: Backend>(
     chunk: Rect,
     state: &State,
     emote_list: &EmoteList,
-    windows: &mut WindowList,
+    window: &mut Window,
 ) -> Result<()> {
     // this is the absolute max of messages we can render
     //  we need to update this later because of line wraps
@@ -88,20 +89,24 @@ fn render_chat<B: Backend>(
     let width = (chunk.width - 2) as usize;
 
     // Compute first range
-    let range;
-    if state.messages.len() > height {
-        range = (state.messages.len() - height)..state.messages.len();
-    } else {
-        range = 0..state.messages.len();
-    }
+    let viewport = window.compute_viewport(height, state.messages.len());
+    let range_len = viewport.end - viewport.start;
 
-    let items: Vec<ListItem> =
-        get_chat_items(range, width, &state.username, &state.messages, &emote_list);
+    // items.len() can be bigger than the selected range,
+    // because line wraps return multiple lines
+    let mut items: Vec<ListItem> = get_chat_items(
+        viewport,
+        width,
+        &state.username,
+        &state.messages,
+        &emote_list,
+    );
 
     // update after linewraps
-    let viewport = windows
-        .get_mut(WindowType::Chat)
-        .compute_viewport(height, items.len());
+    if state.messages.len() > height && items.len() > range_len {
+        let diff = items.len() - range_len;
+        items.drain(0..diff);
+    }
 
     let chat_messages = List::new(items).block(
         Block::default()

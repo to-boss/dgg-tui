@@ -23,15 +23,15 @@ impl<'a> Suggestor<'a> {
         }
     }
 
-    pub fn get(&mut self) -> &String {
+    pub fn get(&mut self) -> String {
         if let Some(suggestion) = self.suggestions.get(self.index) {
             self.index += 1;
-            suggestion
+            format!("{} ", suggestion)
         } else {
             self.index = 0;
             let suggestion = self.suggestions.get(self.index).unwrap();
             self.index += 1;
-            suggestion
+            format!("{} ", suggestion)
         }
     }
 
