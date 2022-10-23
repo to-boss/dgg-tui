@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Window {
     pub window_type: WindowType,
     pub active: bool,
@@ -19,33 +19,25 @@ impl Window {
     }
 
     pub fn compute_viewport(&mut self, height: usize, list_len: usize) -> Range<usize> {
-        let mut start: i16 = 0;
-        let mut end = list_len as i16;
+        let end = list_len;
 
-        if self.auto_scroll {
-            if list_len > height {
+        if list_len > height {
+            if self.auto_scroll {
                 self.scroll = (list_len - height) as i16;
-                start = self.scroll;
             }
         } else {
-            // handle start
-            if start + self.scroll >= 0 {
-                start += self.scroll;
-            }
-            // handle end
-            if end + self.scroll < list_len as i16 {
-                end += self.scroll;
-            }
+            return 0 as usize..end as usize;
         }
 
-        start as usize..end as usize
+        self.scroll as usize..end
     }
 
     pub fn scroll(&mut self, val: i16) {
+        self.auto_scroll = false;
+
         if self.scroll + val >= 0 {
             self.scroll += val;
         }
-        self.auto_scroll = self.scroll < 1;
     }
 
     pub fn flip(&mut self) {
@@ -53,7 +45,7 @@ impl Window {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum WindowType {
     Chat,
     ChatInput,
@@ -61,6 +53,7 @@ pub enum WindowType {
     UserList,
 }
 
+#[derive(Debug)]
 pub struct WindowList {
     pub windows: Vec<Window>,
 }
@@ -76,6 +69,11 @@ impl WindowList {
             ],
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.windows.len()
+    }
+
     pub fn get(&self, window_type: WindowType) -> &Window {
         self.windows
             .iter()
@@ -88,5 +86,28 @@ impl WindowList {
             .iter_mut()
             .find(|w| w.window_type == window_type)
             .unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_get() {
+        let windows = WindowList::new();
+        let debug = windows.get(WindowType::Debug);
+        let chat = windows.get(WindowType::Chat);
+        let chat_input = windows.get(WindowType::ChatInput);
+        assert_eq!(debug.window_type, WindowType::Debug);
+        assert_eq!(chat.window_type, WindowType::Chat);
+        assert_eq!(chat_input.window_type, WindowType::ChatInput);
+    }
+
+    #[test]
+    fn window_get_mut() {
+        let mut windows = WindowList::new();
+        let debug = windows.get_mut(WindowType::Debug);
+        assert_eq!(debug, &mut Window::new(WindowType::Debug, false));
     }
 }

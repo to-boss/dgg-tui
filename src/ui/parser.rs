@@ -1,11 +1,13 @@
-use crate::chat::{features::Feature, user::UserList};
+use crate::chat::{features::Feature, message::ChatMessage, user::UserList};
 use anyhow::Result;
+use tui::{style::Style, text::Span, widgets::ListItem};
 
 use super::emotes::EmoteList;
 
 pub struct ParsedMessage<'a> {
-    parts: Vec<Part<'a>>,
-    words: Vec<&'a str>,
+    parts: Vec<ListItem<'a>>,
+    words: Vec<String>,
+    name: String,
     emote_list: &'a EmoteList,
     user_list: &'a UserList,
 }
@@ -15,24 +17,62 @@ impl<'a> ParsedMessage<'a> {
         ParsedMessage {
             parts: Vec::new(),
             words: Vec::new(),
+            name: String::from(""),
             emote_list,
             user_list,
         }
     }
+
+    pub fn from_chat_message(
+        chat_message: ChatMessage,
+        emote_list: &'a EmoteList,
+        user_list: &'a UserList,
+    ) -> Self {
+        let words = chat_message
+            .message
+            .split_whitespace()
+            .map(|s| s.to_owned())
+            .collect();
+
+        ParsedMessage {
+            parts: Vec::new(),
+            name: chat_message.name,
+            words,
+            emote_list,
+            user_list,
+        }
+    }
+
     pub fn parse_chat_message(&mut self) {
-        self.parts = self
+        // Handle Linewrapping
+        let full_line = format!("{}: {}", self.name, self.words.join(" "));
+        // let lines = textwrap::wrap(&full_line, width);
+
+        let items: Vec<ListItem> = self
             .words
             .iter()
-            .map(|word| match *word {
-                arrow_right if word.starts_with(">") => Part::ArrowRight(arrow_right),
-                link if word.starts_with("https://") => Part::Link(link),
-                embed if word.starts_with("#youtube") => Part::YoutubeEmbed(embed),
-                embed if word.starts_with("#twitch") => Part::TwitchEmbed(embed),
-                tag if word.len() == 4 && word.contains("nsfw") => Part::Nsfw(tag),
-                tag if word.len() == 4 && word.contains("nsfl") => Part::Nsfl(tag),
-                name if self.is_emote(word) => Part::Emote(name),
-                name if self.is_user(word) => Part::User(name),
-                _ => Part::Word(*word),
+            .map(|word| match word {
+                arrow_right if word.starts_with(">") => {
+                    ListItem::new(Span::styled(arrow_right, Style::default()))
+                }
+                link if word.starts_with("https://") => {
+                    ListItem::new(Span::styled(link, Style::default()))
+                }
+                embed if word.starts_with("#youtube") => {
+                    ListItem::new(Span::styled(embed, Style::default()))
+                }
+                embed if word.starts_with("#twitch") => {
+                    ListItem::new(Span::styled(embed, Style::default()))
+                }
+                tag if word.len() == 4 && word.contains("nsfw") => {
+                    ListItem::new(Span::styled(tag, Style::default()))
+                }
+                tag if word.len() == 4 && word.contains("nsfl") => {
+                    ListItem::new(Span::styled(tag, Style::default()))
+                }
+                name if self.is_emote(&word) => ListItem::new(Span::styled(name, Style::default())),
+                name if self.is_user(&word) => ListItem::new(Span::styled(name, Style::default())),
+                _ => ListItem::new(Span::styled(word, Style::default())),
             })
             .collect();
     }

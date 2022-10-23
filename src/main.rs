@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
     let (io_sender, io_recv) = std::sync::mpsc::channel();
     let io_sender_2 = io_sender.clone();
 
-    let state = Arc::new(Mutex::new(State::new(200, config.name, io_sender)));
+    let state = Arc::new(Mutex::new(State::new(config.name, io_sender)));
     let cloned_state = Arc::clone(&state);
 
     // Network Thread
@@ -131,6 +131,7 @@ async fn main() -> Result<()> {
                     }
                     KeyCode::F(1) => windows.get_mut(WindowType::Debug).flip(),
                     KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),
+                    KeyCode::F(3) => windows.get_mut(WindowType::Chat).auto_scroll = true,
                     KeyCode::PageUp => {
                         windows.get_mut(WindowType::Chat).scroll(-1);
                         let scroll = windows.get(WindowType::Chat).scroll.to_string();

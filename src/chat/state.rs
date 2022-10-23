@@ -15,7 +15,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(max_messages: u16, username: String, io_sender: Sender<Action>) -> State {
+    pub fn new(username: String, io_sender: Sender<Action>) -> State {
         let ul = UserList::new();
         let messages = Vec::new();
         let debugs = Vec::new();
@@ -45,6 +45,9 @@ impl State {
         if self.messages.len() >= 200 {
             self.messages.drain(0..1);
         }
+
+        // ChatMessage to RenderedMessage
+
         self.messages.push(msg);
     }
 

@@ -55,6 +55,7 @@ fn render_chat_input<B: Backend>(
 ) {
     let title = format!("Send:─{}", suggestions);
 
+    // Scrolling when we exceed the width of the input rect
     let start_range;
     let mut cursor_x = chunk.x + state.chat_input_history.current_message.len() as u16 + 1;
     if state.chat_input_history.current_message.len() < (chunk.width - 2).into() {
@@ -82,20 +83,25 @@ fn render_chat<B: Backend>(
     windows: &mut WindowList,
 ) -> Result<()> {
     // this is the absolute max of messages we can render
-    //  we need to update this later because of line wraps!
+    //  we need to update this later because of line wraps
     let height = (chunk.height - 2) as usize;
     let width = (chunk.width - 2) as usize;
+
+    // Compute first range
+    let range;
+    if state.messages.len() > height {
+        range = (state.messages.len() - height)..state.messages.len();
+    } else {
+        range = 0..state.messages.len();
+    }
+
+    let items: Vec<ListItem> =
+        get_chat_items(range, width, &state.username, &state.messages, &emote_list);
+
+    // update after linewraps
     let viewport = windows
         .get_mut(WindowType::Chat)
-        .compute_viewport(height, state.messages.len());
-
-    let items: Vec<ListItem> = get_chat_items(
-        viewport,
-        width,
-        &state.username,
-        &state.messages,
-        &emote_list,
-    );
+        .compute_viewport(height, items.len());
 
     let chat_messages = List::new(items).block(
         Block::default()
@@ -114,7 +120,7 @@ fn render_debug<B: Backend>(
     state: &State,
     windows: &mut WindowList,
 ) {
-    let height = (chunk.height - 2) as usize;
+    let height = (chunk.height) as usize;
     let viewport = windows
         .get_mut(WindowType::Debug)
         .compute_viewport(height, state.debugs.len());
@@ -263,7 +269,7 @@ fn get_name_color_from_flair(features: &Vec<String>) -> Color {
 
 // Convert a Vec<ChatMessage> to a Vec<ListItem> with proper styling
 fn get_chat_items<'a>(
-    viewport: Range<usize>,
+    range: Range<usize>,
     width: usize,
     username: &'a str,
     messages: &Vec<ChatMessage>,
@@ -305,7 +311,7 @@ fn get_chat_items<'a>(
         ])
     }
 
-    messages[viewport] // only render messages in view
+    messages[range] // only render messages in view
         .iter()
         .map(|m| {
             let name = &m.name;
@@ -415,13 +421,13 @@ mod tests {
     #[test]
     fn really_long_message_no_whitespace() {
         let (sender, _) = channel();
-        let state = State::new(100, "onlyclose".to_string(), sender);
+        let state = State::new("onlyclose".to_string(), sender);
         let emote_list = EmoteList::new();
         let messages = vec![ChatMessage::from_string(
             state.username.to_string(),
             "x".repeat(100),
         )];
-        let _ = get_chat_items(0..20, 20, &state.username, &messages, &emote_list);
+        let _ = get_chat_items(0..1, 20, &state.username, &messages, &emote_list);
         // println!("{:#?}", _);
     }
 }
