@@ -34,6 +34,9 @@ impl ChatInputHistory {
 
         match index_back {
             Some(index) => {
+                if index == 0 {
+                    self.current_message.pop();
+                }
                 let index_front = self.current_message.len() - index;
                 self.current_message = self.current_message[..index_front].to_string();
             }
@@ -50,6 +53,9 @@ impl ChatInputHistory {
 
         match index_back {
             Some(index) => {
+                if index == 0 {
+                    return self.current_message[self.current_message.len() - 1..].to_string();
+                }
                 let index_front = self.current_message.len() - index;
                 self.current_message[index_front..].to_string()
             }
@@ -132,6 +138,14 @@ mod tests {
     }
 
     #[test]
+    fn get_word_test_whitespace_last() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello whats up ");
+        let last_word = cih.get_current_word();
+        assert_eq!(last_word, " ");
+    }
+
+    #[test]
     fn delete_current_word() {
         let mut cih = ChatInputHistory::default();
         cih.current_message = String::from("hello whats up");
@@ -145,5 +159,13 @@ mod tests {
         cih.current_message = String::from("hello");
         cih.delete_current_word();
         assert_eq!(cih.current_message, "");
+    }
+
+    #[test]
+    fn delete_current_word_whitespace_last() {
+        let mut cih = ChatInputHistory::default();
+        cih.current_message = String::from("hello whats up ");
+        cih.delete_current_word();
+        assert_eq!(cih.current_message, "hello whats up");
     }
 }

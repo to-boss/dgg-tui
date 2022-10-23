@@ -6,7 +6,10 @@ use std::time::{Duration, Instant};
 use std::{io::Result, thread};
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{
+    KeyCode, KeyEvent, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+    PushKeyboardEnhancementFlags,
+};
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
@@ -42,7 +45,12 @@ async fn main() -> Result<()> {
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, Hide, EnterAlternateScreen)?;
+    execute!(
+        stdout,
+        Hide,
+        EnterAlternateScreen,
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
+    )?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -82,68 +90,79 @@ async fn main() -> Result<()> {
                         code: KeyCode::Backspace,
                         modifiers: KeyModifiers::CONTROL,
                         ..
-                    } => state.chat_input_history.delete_current_word(),
-                    _ => (),
+                    }
+                    | KeyEvent {
+                        // Gnome Terminal uses Control+h as Backspace
+                        code: KeyCode::Char('h'),
+                        modifiers: KeyModifiers::CONTROL,
+                        ..
+                    } => {
+                        state.chat_input_history.delete_current_word();
+                        suggestor.suggestions.clear();
+                    }
+                    _ => match key.code {
+                        KeyCode::Esc => {
+                            state.dispatch(Action::QuitApp);
+                            break;
+                        }
+                        KeyCode::Char(c) => {
+                            state.chat_input_history.current_message.push(c);
+                            suggestor
+                                .update(&state.ul, state.chat_input_history.get_current_word());
+                        }
+                        KeyCode::Backspace => {
+                            state.chat_input_history.current_message.pop();
+                            suggestor
+                                .update(&state.ul, state.chat_input_history.get_current_word());
+                        }
+                        KeyCode::Tab => {
+                            // Autocomplete: delete the current word and add the suggestion
+                            if suggestor.suggestions.len() > 0 {
+                                state.chat_input_history.delete_current_word();
+                                state
+                                    .chat_input_history
+                                    .current_message
+                                    .push_str(&suggestor.get())
+                            }
+                        }
+                        KeyCode::Enter => {
+                            if state.chat_input_history.current_message.starts_with("/") {
+                                match parse_command_to_action(
+                                    &state.chat_input_history.current_message,
+                                ) {
+                                    Ok(action) => state.dispatch(action),
+                                    Err(err) => state.add_error(err.to_string()),
+                                }
+                                state.chat_input_history.add();
+                            } else {
+                                state.dispatch(Action::SendMsg);
+                            }
+                            suggestor.suggestions.clear();
+                        }
+                        KeyCode::Up => {
+                            state.chat_input_history.next();
+                        }
+                        KeyCode::Down => {
+                            state.chat_input_history.prev();
+                        }
+                        KeyCode::F(1) => windows.get_mut(WindowType::Debug).flip(),
+                        KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),
+                        KeyCode::F(3) => windows.get_mut(WindowType::Chat).auto_scroll = true,
+                        KeyCode::PageUp => {
+                            windows.get_mut(WindowType::Chat).scroll(-1);
+                            let scroll = windows.get(WindowType::Chat).scroll.to_string();
+                            state.add_debug(scroll)
+                        }
+                        KeyCode::PageDown => {
+                            windows.get_mut(WindowType::Chat).scroll(1);
+                            let scroll = windows.get(WindowType::Chat).scroll.to_string();
+                            state.add_debug(scroll)
+                        }
+                        _ => (),
+                    },
                 }
 
                 // match single keys
-                match key.code {
-                    KeyCode::Esc => {
-                        state.dispatch(Action::QuitApp);
-                        break;
-                    }
-                    KeyCode::Char(c) => {
-                        state.chat_input_history.current_message.push(c);
-                        suggestor.update(&state.ul, state.chat_input_history.get_current_word());
-                    }
-                    KeyCode::Backspace => {
-                        state.chat_input_history.current_message.pop();
-                        suggestor.update(&state.ul, state.chat_input_history.get_current_word());
-                    }
-                    KeyCode::Tab => {
-                        // Autocomplete: delete the current word and add the suggestion
-                        if suggestor.suggestions.len() > 0 {
-                            state.chat_input_history.delete_current_word();
-                            state
-                                .chat_input_history
-                                .current_message
-                                .push_str(&suggestor.get())
-                        }
-                    }
-                    KeyCode::Enter => {
-                        if state.chat_input_history.current_message.starts_with("/") {
-                            match parse_command_to_action(&state.chat_input_history.current_message)
-                            {
-                                Ok(action) => state.dispatch(action),
-                                Err(err) => state.add_error(err.to_string()),
-                            }
-                            state.chat_input_history.add();
-                        } else {
-                            state.dispatch(Action::SendMsg);
-                        }
-                        suggestor.suggestions.clear();
-                    }
-                    KeyCode::Up => {
-                        state.chat_input_history.next();
-                    }
-                    KeyCode::Down => {
-                        state.chat_input_history.prev();
-                    }
-                    KeyCode::F(1) => windows.get_mut(WindowType::Debug).flip(),
-                    KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),
-                    KeyCode::F(3) => windows.get_mut(WindowType::Chat).auto_scroll = true,
-                    KeyCode::PageUp => {
-                        windows.get_mut(WindowType::Chat).scroll(-1);
-                        let scroll = windows.get(WindowType::Chat).scroll.to_string();
-                        state.add_debug(scroll)
-                    }
-                    KeyCode::PageDown => {
-                        windows.get_mut(WindowType::Chat).scroll(1);
-                        let scroll = windows.get(WindowType::Chat).scroll.to_string();
-                        state.add_debug(scroll)
-                    }
-                    _ => (),
-                }
             }
         }
         // should this be tokio sleep?
@@ -151,7 +170,12 @@ async fn main() -> Result<()> {
     }
 
     let mut stdout = io::stdout();
-    execute!(stdout, Show, LeaveAlternateScreen)?;
+    execute!(
+        stdout,
+        Show,
+        LeaveAlternateScreen,
+        PopKeyboardEnhancementFlags
+    )?;
     terminal::disable_raw_mode()?;
     Ok(())
 }

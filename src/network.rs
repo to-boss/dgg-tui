@@ -19,7 +19,7 @@ impl<'a> Network<'a> {
         token: &'a str,
         state: &'a Arc<Mutex<State>>,
         chat_msg_sender: futures::channel::mpsc::Sender<Message>,
-    ) -> Network {
+    ) -> Network<'a> {
         let api_caller = ApiCaller::new(&token);
         Network {
             state,
