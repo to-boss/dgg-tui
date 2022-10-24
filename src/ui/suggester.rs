@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::chat::user::UserList;
+use crate::chat::{command::Command, user::UserList};
 
 use super::emotes::EmoteList;
 
@@ -57,6 +57,10 @@ impl<'a> Suggestor<'a> {
                 .take(10)
                 .map(|user| user.name.to_string())
                 .collect();
+
+            if &self.current_word[..1] == "/" {
+                username_suggestions.append(&mut Command::vec())
+            }
 
             // usernames get recommended before emotes!
             username_suggestions.append(&mut emote_suggestions);

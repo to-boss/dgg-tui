@@ -25,6 +25,7 @@ impl ChatInputHistory {
         }
     }
 
+    /// Delete the last word of the current message and every whitespace before.
     pub fn delete_current_word(&mut self) {
         let index_back = self
             .current_message
@@ -36,6 +37,7 @@ impl ChatInputHistory {
             Some(index) => {
                 if index == 0 {
                     self.current_message.pop();
+                    self.delete_current_word();
                 }
                 let index_front = self.current_message.len() - index;
                 self.current_message = self.current_message[..index_front].to_string();
@@ -166,6 +168,6 @@ mod tests {
         let mut cih = ChatInputHistory::default();
         cih.current_message = String::from("hello whats up ");
         cih.delete_current_word();
-        assert_eq!(cih.current_message, "hello whats up");
+        assert_eq!(cih.current_message, "hello whats ");
     }
 }

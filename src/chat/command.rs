@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::slice::Iter;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -28,10 +29,24 @@ pub fn parse_command_to_action(s: &String) -> Result<Action> {
     }
 }
 
+impl Command {
+    pub fn vec() -> Vec<String> {
+        vec!["/stalk".to_string(), "/embeds".to_string()]
+    }
+}
+
 impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             _ => write!(f, "{:?}", self),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_strings_equals() {}
 }

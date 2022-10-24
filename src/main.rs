@@ -6,10 +6,7 @@ use std::time::{Duration, Instant};
 use std::{io::Result, thread};
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::{
-    KeyCode, KeyEvent, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
-    PushKeyboardEnhancementFlags,
-};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
@@ -45,12 +42,7 @@ async fn main() -> Result<()> {
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(
-        stdout,
-        Hide,
-        EnterAlternateScreen,
-        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES)
-    )?;
+    execute!(stdout, Hide, EnterAlternateScreen,)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -166,16 +158,11 @@ async fn main() -> Result<()> {
             }
         }
         // should this be tokio sleep?
-        thread::sleep(Duration::from_millis(30)); // run at roughly 30 fps
+        thread::sleep(Duration::from_millis(16)); // run at roughly 60 fps
     }
 
     let mut stdout = io::stdout();
-    execute!(
-        stdout,
-        Show,
-        LeaveAlternateScreen,
-        PopKeyboardEnhancementFlags
-    )?;
+    execute!(stdout, Show, LeaveAlternateScreen,)?;
     terminal::disable_raw_mode()?;
     Ok(())
 }
