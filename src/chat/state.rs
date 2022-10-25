@@ -11,7 +11,8 @@ pub struct State {
     pub messages: Vec<ChatMessage>,
     pub message_to_send: Option<String>,
     pub debugs: Vec<String>,
-    pub chat_input_history: ChatInput,
+    pub chat_input: ChatInput,
+    pub loaded: bool,
 }
 
 impl State {
@@ -19,7 +20,7 @@ impl State {
         let ul = UserList::new();
         let messages = Vec::new();
         let debugs = Vec::new();
-        let chat_input_history = ChatInput::default();
+        let chat_input = ChatInput::default();
 
         State {
             io_sender,
@@ -28,7 +29,8 @@ impl State {
             messages,
             message_to_send: None,
             debugs,
-            chat_input_history,
+            chat_input,
+            loaded: false,
         }
     }
 
@@ -45,8 +47,6 @@ impl State {
         if self.messages.len() >= 200 {
             self.messages.drain(0..1);
         }
-
-        // ChatMessage to RenderedMessage
 
         self.messages.push(msg);
     }

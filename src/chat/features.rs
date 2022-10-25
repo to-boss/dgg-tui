@@ -1,5 +1,8 @@
 use anyhow::{bail, Result};
+use serde::{Deserialize, Serialize};
+use tui::style::Color;
 
+#[derive(Debug, Deserialize, Serialize)]
 pub enum Feature {
     White,
     Sub,
@@ -42,6 +45,31 @@ pub enum Feature {
 }
 
 impl Feature {
+    pub fn to_color(&self) -> Color {
+        match self {
+            Feature::Tier1 => Color::Cyan,
+            Feature::Tier2 => Color::LightCyan,
+            Feature::Tier3 => Color::LightGreen,
+            Feature::Tier4 => Color::Magenta,
+            Feature::Vip => Color::Rgb(230, 144, 20),
+            Feature::Micro => Color::Yellow,
+            Feature::Mod => Color::Yellow,
+            Feature::Broadcaster => Color::Rgb(230, 144, 20),
+            Feature::Notable => Color::Rgb(230, 144, 20),
+            Feature::Admin => Color::Red,
+            _ => Color::White,
+        }
+    }
+
+    pub fn parse_flair(flairs: &Vec<String>) -> Feature {
+        match flairs.len() {
+            4 => Feature::from_str(&flairs[2]).unwrap(),
+            2 | 3 => Feature::from_str(&flairs[1]).unwrap(),
+            1 => Feature::from_str(&flairs[0]).unwrap(),
+            _ => Feature::White,
+        }
+    }
+
     pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "subscriber" => Ok(Feature::Sub),
@@ -82,5 +110,11 @@ impl Feature {
             "flair30" => Ok(Feature::League),
             _ => bail!("Could not find flair {}", s),
         }
+    }
+}
+
+impl Default for Feature {
+    fn default() -> Self {
+        Feature::White
     }
 }

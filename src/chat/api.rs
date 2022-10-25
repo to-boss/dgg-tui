@@ -115,45 +115,23 @@ pub struct UserInfo {
 pub struct ChatHistory {
     nick: String,
     features: Vec<String>,
-    #[serde(with = "time::serde::timestamp")]
-    pub timestamp: OffsetDateTime,
+    #[serde(skip_deserializing)]
+    pub timestamp: String,
     data: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Stalk {
-    #[serde(with = "time::serde::timestamp", rename(deserialize = "date"))]
-    pub timestamp: OffsetDateTime,
+    #[serde(skip_deserializing)]
+    pub timestamp: String,
     pub flairs: String,
     pub nick: String,
     pub text: String,
 }
 
-impl Stalk {
-    pub fn get_timestamp_str(&self) -> String {
-        let hour = self.timestamp.hour();
-        let minutes = self.timestamp.minute();
-        if hour < 10 && minutes < 10 {
-            format!("0{}:0{}", hour, minutes)
-        } else if hour < 10 {
-            format!("0{}:{}", hour, minutes)
-        } else if minutes < 10 {
-            format!("{}:0{}", hour, minutes)
-        } else {
-            format!("{}:{}", hour, minutes)
-        }
-    }
-}
-
 impl Display for Stalk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}] {}: {}",
-            self.get_timestamp_str(),
-            self.nick,
-            self.text
-        )
+        write!(f, "{}: {}", self.nick, self.text)
     }
 }
 

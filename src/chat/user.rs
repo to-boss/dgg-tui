@@ -1,22 +1,37 @@
+use super::features::Feature;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct User {
     pub features: Vec<String>,
     #[serde(rename(deserialize = "nick"))]
     pub name: String,
-    #[serde(with = "time::serde::timestamp", default = "default_timestamp")]
-    pub timestamp: OffsetDateTime,
-}
-
-fn default_timestamp() -> OffsetDateTime {
-    OffsetDateTime::now_utc()
+    #[serde(skip_deserializing)]
+    pub timestamp: String,
+    #[serde(skip_deserializing)]
+    pub flair: Feature,
 }
 
 impl User {
     pub fn from_json(json: &str) -> User {
-        serde_json::from_str(json).unwrap()
+        let mut user: User = serde_json::from_str(json).unwrap();
+        user.parse_flair();
+        user
+    }
+
+    pub fn parse_flair(&mut self) {
+        self.flair = Feature::parse_flair(&self.features);
+    }
+}
+
+impl Default for User {
+    fn default() -> Self {
+        User {
+            features: Vec::new(),
+            name: String::from("default_name"),
+            timestamp: String::from("default_timestamp"),
+            flair: Feature::White,
+        }
     }
 }
 

@@ -109,10 +109,11 @@ impl<'a> Network<'a> {
     async fn get_chat_history(&self) {
         match self.api_caller.get_chat_history().await {
             Ok(chat_history) => {
-                let state = self.state.lock().await;
+                let mut state = self.state.lock().await;
                 chat_history[chat_history.len() - 50..]
                     .into_iter()
                     .for_each(|msg| state.dispatch(parse_msg(msg)));
+                state.loaded = true;
             }
             Err(err) => self.state.lock().await.add_error(err.to_string()),
         }
@@ -129,11 +130,8 @@ impl<'a> Network<'a> {
 
     async fn send_chat_message(&mut self) {
         let mut state = self.state.lock().await;
-        let msg = format!(
-            r#"MSG {{"data":"{}"}}"#,
-            state.chat_input_history.current_message
-        );
-        state.chat_input_history.add();
+        let msg = format!(r#"MSG {{"data":"{}"}}"#, state.chat_input.current_message);
+        state.chat_input.add();
         drop(state);
 
         let msg = Message::Text(msg);
@@ -143,7 +141,11 @@ impl<'a> Network<'a> {
     pub async fn handle_io(&mut self, action: Action) {
         self.state.lock().await.add_debug(action.to_string());
         match action {
-            Action::RecvMsg(chat_msg) => self.state.lock().await.add_message(chat_msg),
+            Action::RecvMsg(mut chat_msg) => {
+                let mut state = self.state.lock().await;
+                chat_msg.parse(&state.username);
+                state.add_message(chat_msg)
+            }
             Action::Stalk(name, num) => self.stalk(name, num).await,
             Action::QuitApp => self.close(),
             Action::GetChatHistory => self.get_chat_history().await,

@@ -27,6 +27,10 @@ use tungstenite::Message;
 async fn main() -> Result<()> {
     let config = read_user_data_from_file()?;
 
+    let emote_list = EmoteList::new();
+    let mut suggestor = Suggestor::new(&emote_list);
+    let mut windows = WindowList::new();
+
     let (chat_msg_sender, chat_msg_recv) = futures::channel::mpsc::channel(1);
     let (io_sender, io_recv) = std::sync::mpsc::channel();
     let io_sender_2 = io_sender.clone();
@@ -50,14 +54,9 @@ async fn main() -> Result<()> {
     let tick_rate = Duration::from_millis(16);
     let last_tick = Instant::now();
 
-    let state = cloned_state.lock().await;
-    let emote_list = EmoteList::new();
-    let mut suggestor = Suggestor::new(&emote_list);
-
-    let mut windows = WindowList::new();
-
     // TODO make destiny.gg/api/chat/me work
     // state.dispatch(Action::GetMe);
+    let state = cloned_state.lock().await;
     state.dispatch(Action::GetChatHistory);
     drop(state);
 
@@ -89,7 +88,7 @@ async fn main() -> Result<()> {
                         modifiers: KeyModifiers::CONTROL,
                         ..
                     } => {
-                        state.chat_input_history.delete_current_word();
+                        state.chat_input.delete_current_word();
                         suggestor.suggestions.clear();
                     }
                     // match keys without modifiers
@@ -99,44 +98,37 @@ async fn main() -> Result<()> {
                             break;
                         }
                         KeyCode::Char(c) => {
-                            state.chat_input_history.current_message.push(c);
-                            suggestor
-                                .update(&state.ul, state.chat_input_history.get_current_word());
+                            state.chat_input.current_message.push(c);
+                            suggestor.update(&state.ul, state.chat_input.get_current_word());
                         }
                         KeyCode::Backspace => {
-                            state.chat_input_history.current_message.pop();
-                            suggestor
-                                .update(&state.ul, state.chat_input_history.get_current_word());
+                            state.chat_input.current_message.pop();
+                            suggestor.update(&state.ul, state.chat_input.get_current_word());
                         }
                         KeyCode::Tab => {
                             // Autocomplete: delete the current word and add the suggestion
                             if suggestor.suggestions.len() > 0 {
-                                state.chat_input_history.delete_current_word();
-                                state
-                                    .chat_input_history
-                                    .current_message
-                                    .push_str(&suggestor.get())
+                                state.chat_input.delete_current_word();
+                                state.chat_input.current_message.push_str(&suggestor.get())
                             }
                         }
                         KeyCode::Enter => {
-                            if state.chat_input_history.current_message.starts_with("/") {
-                                match parse_command_to_action(
-                                    &state.chat_input_history.current_message,
-                                ) {
+                            if state.chat_input.current_message.starts_with("/") {
+                                match parse_command_to_action(&state.chat_input.current_message) {
                                     Ok(action) => state.dispatch(action),
                                     Err(err) => state.add_error(err.to_string()),
                                 }
-                                state.chat_input_history.add();
+                                state.chat_input.add();
                             } else {
                                 state.dispatch(Action::SendMsg);
                             }
                             suggestor.suggestions.clear();
                         }
                         KeyCode::Up => {
-                            state.chat_input_history.next();
+                            state.chat_input.next();
                         }
                         KeyCode::Down => {
-                            state.chat_input_history.prev();
+                            state.chat_input.prev();
                         }
                         KeyCode::F(1) => windows.get_mut(WindowType::Debug).flip(),
                         KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),

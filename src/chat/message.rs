@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use time::OffsetDateTime;
 
+use crate::ui::parser::parse_emotes;
+
+use super::features::Feature;
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ChatMessage {
     #[serde(rename(deserialize = "data"))]
@@ -9,8 +13,20 @@ pub struct ChatMessage {
     pub features: Vec<String>,
     #[serde(rename(deserialize = "nick"))]
     pub name: String,
-    #[serde(with = "time::serde::timestamp")]
-    pub timestamp: OffsetDateTime,
+    #[serde(skip_deserializing)]
+    pub timestamp: String,
+    #[serde(skip_deserializing)]
+    pub flair: Feature,
+    #[serde(skip_deserializing)]
+    pub greentext: bool,
+    #[serde(skip_deserializing)]
+    pub own_message: bool,
+    #[serde(skip_deserializing)]
+    pub mentioned: bool,
+    #[serde(skip_deserializing)]
+    pub nsfw: bool,
+    #[serde(skip_deserializing)]
+    pub nsfl: bool,
 }
 
 impl ChatMessage {
@@ -22,35 +38,56 @@ impl ChatMessage {
         ChatMessage {
             name,
             features: Vec::new(),
-            timestamp: OffsetDateTime::now_utc(),
+            timestamp: String::from("default_timestamp"),
             message,
+            flair: Feature::White,
+            greentext: false,
+            own_message: false,
+            mentioned: false,
+            nsfw: false,
+            nsfl: false,
         }
     }
 
-    pub fn get_timestamp_str(&self) -> String {
-        let hour = self.timestamp.hour();
-        let minutes = self.timestamp.minute();
-        if hour < 10 && minutes < 10 {
-            format!("0{}:0{}", hour, minutes)
-        } else if hour < 10 {
-            format!("0{}:{}", hour, minutes)
-        } else if minutes < 10 {
-            format!("{}:0{}", hour, minutes)
-        } else {
-            format!("{}:{}", hour, minutes)
-        }
+    pub fn parse(&mut self, username: &str) {
+        // parse flair
+        self.flair = Feature::parse_flair(&self.features);
+
+        // parse message
+        self.parse_message(username);
+    }
+
+    fn parse_message(&mut self, username: &str) {
+        self.message
+            .split_whitespace()
+            .into_iter()
+            .for_each(|word| {
+                if word.starts_with(">") {
+                    self.greentext = true;
+                }
+
+                if word.len() == 4 {
+                    match word {
+                        "nsfw" => self.nsfw = true,
+                        "nsfl" => self.nsfl = true,
+                        _ => (),
+                    }
+                }
+
+                if word.len() == username.len() && word.eq(username) {
+                    self.mentioned = true;
+                }
+
+                if self.name.len() == username.len() && self.name.eq(username) {
+                    self.own_message = true;
+                }
+            });
     }
 }
 
 impl Display for ChatMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}] {}: {}",
-            self.get_timestamp_str(),
-            self.name,
-            self.message
-        )
+        write!(f, "{}: {}", self.name, self.message)
     }
 }
 

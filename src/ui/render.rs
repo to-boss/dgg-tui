@@ -14,7 +14,8 @@ use crate::chat::{features::Feature, message::ChatMessage, state::State};
 
 use super::{
     emotes::EmoteList,
-    parser::{parse_emotes, parse_flair},
+    list_itemable::ListItemable,
+    parser::parse_emotes,
     suggester::Suggestor,
     window::{Window, WindowList, WindowType},
 };
@@ -58,17 +59,17 @@ fn render_chat_input<B: Backend>(
 
     // Scrolling when we exceed the width of the input rect
     let start_range;
-    let mut cursor_x = chunk.x + state.chat_input_history.current_message.len() as u16 + 1;
-    if state.chat_input_history.current_message.len() < (chunk.width - 2).into() {
+    let mut cursor_x = chunk.x + state.chat_input.current_message.len() as u16 + 1;
+    if state.chat_input.current_message.len() < (chunk.width - 2).into() {
         start_range = 0;
     } else {
-        start_range = state.chat_input_history.current_message.len() - ((chunk.width - 2) as usize);
+        start_range = state.chat_input.current_message.len() - ((chunk.width - 2) as usize);
         if start_range > (chunk.width - 2).into() {
             cursor_x -= 1;
         }
     }
 
-    let input = Paragraph::new(&state.chat_input_history.current_message[start_range..])
+    let input = Paragraph::new(&state.chat_input.current_message[start_range..])
         .style(Style::default().bg(Color::Black).fg(Color::White))
         .block(Block::default().borders(Borders::ALL).title(title));
 
@@ -169,21 +170,10 @@ fn render_debug<B: Backend>(
 }
 
 fn render_users<B: Backend>(f: &mut Frame<B>, chunk: Rect, state: &State) {
-    let (height, start) = get_height_and_start(chunk, state.ul.users.len());
-    let mut items: Vec<ListItem> = state.ul.users[start..]
+    let (_height, start) = get_height_and_start(chunk, state.ul.users.len());
+    let items: Vec<ListItem> = state.ul.users[start..]
         .iter()
-        .map(|m| {
-            let name = m.name.to_string();
-
-            // Handle Name
-            let name_style = get_name_color_from_flair(&m.features);
-
-            let line = Spans::from(vec![Span::styled(
-                format!("{}", name),
-                Style::default().fg(name_style),
-            )]);
-            ListItem::new(line)
-        })
+        .map(|user| user.to_list_item())
         .collect();
 
     let chatter_names = List::new(items).block(
@@ -257,21 +247,6 @@ fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
     (height, start)
 }
 
-fn get_name_color_from_flair(features: &Vec<String>) -> Color {
-    let pf = parse_flair(features).unwrap();
-    match pf {
-        Feature::Tier1 => Color::Cyan,
-        Feature::Tier2 => Color::LightCyan,
-        Feature::Tier3 => Color::LightGreen,
-        Feature::Tier4 => Color::Magenta,
-        Feature::Vip => Color::Rgb(230, 144, 20),
-        Feature::Mod => Color::Yellow,
-        Feature::Broadcaster => Color::Rgb(230, 144, 20),
-        Feature::Admin => Color::Red,
-        _ => Color::White,
-    }
-}
-
 // Convert a Vec<ChatMessage> to a Vec<ListItem> with proper styling
 fn get_chat_items<'a>(
     range: Range<usize>,
@@ -283,16 +258,14 @@ fn get_chat_items<'a>(
     fn render_chat_line<'a>(
         name: &str,
         pm: &str,
-        timestamp: &str,
         bg_color: Color,
         message_color: Color,
         name_color: Color,
         modifier: Modifier,
     ) -> Spans<'a> {
-        // Each line has 4 components which can be styled differently
-        // [time] [name ][: ] [rest of message]
+        // Each line has 3 components which can be styled differently
+        // [name ][: ] [rest of message]
         Spans::from(vec![
-            Span::styled(format!("[{}] ", timestamp), Style::default()),
             Span::styled(
                 format!("{}", name),
                 Style::default()
@@ -320,7 +293,6 @@ fn get_chat_items<'a>(
         .iter()
         .map(|m| {
             let name = &m.name;
-            let ts = m.get_timestamp_str();
             let mut words: Vec<&str> = m.message.split_whitespace().collect();
 
             // Replace Emote Strings in Message
@@ -332,30 +304,30 @@ fn get_chat_items<'a>(
             let mut modifier = Modifier::empty();
 
             // Handle Name
-            let mut name_color = get_name_color_from_flair(&m.features);
+            let mut name_color = m.flair.to_color();
 
             // Handle Greentext
-            if pm.starts_with(">") {
+            if m.greentext {
                 message_color = Color::Green;
             }
 
             // Handle Name Hightlight own Message
-            if name == username {
+            if m.own_message {
                 bg_color = Color::Rgb(50, 50, 50);
             }
 
             // Handle Highlight other Message
-            if pm.contains(username) {
+            if m.mentioned {
                 bg_color = Color::Rgb(10, 40, 60);
             }
 
             // Handle nsfw messages
             // TODO: only mark nsfw when a link is found
-            if words
-                .iter()
-                .any(|word| word.len() == 4 && word.to_lowercase() == "nsfw")
-            {
-                // modifier = Modifier::UNDERLINED;
+            if m.nsfw {
+                bg_color = Color::Rgb(130, 100, 150);
+            }
+
+            if m.nsfl {
                 bg_color = Color::Rgb(130, 100, 150);
             }
 
@@ -370,23 +342,22 @@ fn get_chat_items<'a>(
             }
 
             // Handle Line Wraps
-            let full_line = format!("[{}] {}: {}", ts, name, pm);
+            let full_line = format!("{}: {}", name, pm);
             let lines = textwrap::wrap(&full_line, width);
 
             // Text wrapping of really long messages
-            // "[12:00] : ".len() is 10, i think the wrapper strips the whitespace after the :
+            // ": ".len() is 2, i think the wrapper strips the whitespace after the :
             // to the next line when dealing with really long messages
             let first_line_length;
-            if lines[0].len() - name.len() < 10 {
-                first_line_length = lines[0].len() - name.len() - 9;
+            if lines[0].len() - name.len() < 2 {
+                first_line_length = lines[0].len() - name.len() - 1;
             } else {
-                first_line_length = lines[0].len() - name.len() - 10;
+                first_line_length = lines[0].len() - name.len() - 2;
             }
 
             let line = render_chat_line(
                 &name,
                 &pm[..first_line_length],
-                &ts,
                 bg_color,
                 message_color,
                 name_color,
