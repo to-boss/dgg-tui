@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-pub struct ChatInputHistory {
+pub struct ChatInput {
     pub max_messages: usize,
     pub history: VecDeque<String>,
     pub index: i8,
@@ -8,15 +8,15 @@ pub struct ChatInputHistory {
     pub buffer_message: String,
 }
 
-impl ChatInputHistory {
+impl ChatInput {
     pub fn default() -> Self {
-        let max_messages = 100;
+        let max_messages = 200;
         let index = 0;
         let history = VecDeque::with_capacity(max_messages);
         let buffer_message = String::new();
         let current_message = String::new();
 
-        ChatInputHistory {
+        ChatInput {
             max_messages,
             history,
             index,
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn get_word_test() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello whats up");
         let last_word = cih.get_current_word();
         assert_eq!(last_word, "up");
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn get_word_test_only_one_word() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello");
         let last_word = cih.get_current_word();
         assert_eq!(last_word, "hello");
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn get_word_test_whitespace_last() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello whats up ");
         let last_word = cih.get_current_word();
         assert_eq!(last_word, " ");
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn delete_current_word() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello whats up");
         cih.delete_current_word();
         assert_eq!(cih.current_message, "hello whats ");
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn delete_current_word_only_one_word() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello");
         cih.delete_current_word();
         assert_eq!(cih.current_message, "");
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn delete_current_word_whitespace_last() {
-        let mut cih = ChatInputHistory::default();
+        let mut cih = ChatInput::default();
         cih.current_message = String::from("hello whats up ");
         cih.delete_current_word();
         assert_eq!(cih.current_message, "hello whats ");

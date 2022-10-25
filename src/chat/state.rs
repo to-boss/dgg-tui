@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use crate::ui::chat_input_history::ChatInputHistory;
+use crate::ui::chat_input::ChatInput;
 
 use super::{action::Action, message::ChatMessage, user::UserList};
 
@@ -11,7 +11,7 @@ pub struct State {
     pub messages: Vec<ChatMessage>,
     pub message_to_send: Option<String>,
     pub debugs: Vec<String>,
-    pub chat_input_history: ChatInputHistory,
+    pub chat_input_history: ChatInput,
 }
 
 impl State {
@@ -19,7 +19,7 @@ impl State {
         let ul = UserList::new();
         let messages = Vec::new();
         let debugs = Vec::new();
-        let chat_input_history = ChatInputHistory::default();
+        let chat_input_history = ChatInput::default();
 
         State {
             io_sender,

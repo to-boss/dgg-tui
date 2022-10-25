@@ -355,8 +355,8 @@ fn get_chat_items<'a>(
                 .iter()
                 .any(|word| word.len() == 4 && word.to_lowercase() == "nsfw")
             {
-                modifier = Modifier::UNDERLINED;
-                bg_color = Color::LightMagenta;
+                // modifier = Modifier::UNDERLINED;
+                bg_color = Color::Rgb(130, 100, 150);
             }
 
             if name.eq("STALK") || name.eq("EMBED") {

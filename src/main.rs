@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
-    let tick_rate = Duration::from_millis(100);
+    let tick_rate = Duration::from_millis(16);
     let last_tick = Instant::now();
 
     let state = cloned_state.lock().await;
@@ -141,24 +141,22 @@ async fn main() -> Result<()> {
                         KeyCode::F(2) => windows.get_mut(WindowType::UserList).flip(),
                         KeyCode::F(3) => windows.get_mut(WindowType::Chat).auto_scroll = true,
                         KeyCode::PageUp => {
-                            windows.get_mut(WindowType::Chat).scroll(-1);
+                            windows.get_mut(WindowType::Chat).scroll(-2);
                             let scroll = windows.get(WindowType::Chat).scroll.to_string();
                             state.add_debug(scroll)
                         }
                         KeyCode::PageDown => {
-                            windows.get_mut(WindowType::Chat).scroll(1);
+                            windows.get_mut(WindowType::Chat).scroll(2);
                             let scroll = windows.get(WindowType::Chat).scroll.to_string();
                             state.add_debug(scroll)
                         }
                         _ => (),
                     },
                 }
-
-                // match single keys
             }
         }
-        // should this be tokio sleep?
-        thread::sleep(Duration::from_millis(16)); // run at roughly 60 fps
+        // sleep for lower CPU usage
+        thread::sleep(tick_rate);
     }
 
     let mut stdout = io::stdout();

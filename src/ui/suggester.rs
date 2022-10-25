@@ -4,6 +4,8 @@ use crate::chat::{command::Command, user::UserList};
 
 use super::emotes::EmoteList;
 
+// TODO: Should prob have a &ChatInput
+// then we can order suggestions after usage
 pub struct Suggestor<'a> {
     pub suggestions: Vec<String>,
     pub emote_list: &'a EmoteList,
@@ -58,13 +60,15 @@ impl<'a> Suggestor<'a> {
                 .map(|user| user.name.to_string())
                 .collect();
 
+            // suggest commands
             if &self.current_word[..1] == "/" {
-                username_suggestions.append(&mut Command::vec())
+                emote_suggestions.append(&mut Command::vec())
             }
 
-            // usernames get recommended before emotes!
-            username_suggestions.append(&mut emote_suggestions);
-            self.suggestions = username_suggestions;
+            // emotes get recommended before names
+            emote_suggestions.append(&mut username_suggestions);
+
+            self.suggestions = emote_suggestions;
             self.index = 0;
         }
     }

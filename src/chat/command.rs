@@ -1,8 +1,6 @@
-use std::fmt::Display;
-use std::slice::Iter;
-
 use anyhow::bail;
 use anyhow::Result;
+use std::fmt::Display;
 
 use super::action::Action;
 
@@ -45,7 +43,6 @@ impl Display for Command {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn command_strings_equals() {}

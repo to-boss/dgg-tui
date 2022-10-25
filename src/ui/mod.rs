@@ -1,4 +1,4 @@
-pub mod chat_input_history;
+pub mod chat_input;
 pub mod emotes;
 pub mod parser;
 pub mod render;
