@@ -92,6 +92,7 @@ async fn main() -> Result<()> {
                         state.chat_input_history.delete_current_word();
                         suggestor.suggestions.clear();
                     }
+                    // match keys without modifiers
                     _ => match key.code {
                         KeyCode::Esc => {
                             state.dispatch(Action::QuitApp);

@@ -164,7 +164,7 @@ impl EmoteList {
         });
         emotes.push(Emote {
             name: "Depresstiny",
-            emote: "☹️",
+            emote: "🥺",
         });
         emotes.push(Emote {
             name: "OhKrappa",
