@@ -2,8 +2,10 @@ use std::sync::{mpsc::Sender, Arc};
 
 use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
 use tokio::sync::Mutex;
-use tokio_tungstenite::connect_async;
-use tungstenite::{handshake::client::Request, Message};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{self, handshake::client::Request, Message},
+};
 
 use crate::chat::{action::Action, api::ApiCaller, message::ChatMessage, state::State};
 

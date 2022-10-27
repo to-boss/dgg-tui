@@ -2,7 +2,6 @@ use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, time::Duration};
-use time::OffsetDateTime;
 use tokio::time::Instant;
 
 pub struct ApiCaller<'a> {

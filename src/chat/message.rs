@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use time::OffsetDateTime;
-
-use crate::ui::parser::parse_emotes;
 
 use super::features::Feature;
 

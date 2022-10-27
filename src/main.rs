@@ -1,13 +1,12 @@
-use std::fs::File;
-use std::io::{self, BufReader};
+use std::io::{self};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
-use std::{io::Result, thread};
 
 use crossterm::cursor::{Hide, Show};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen, SetTitle};
 use crossterm::{execute, terminal};
 use dgg::chat::action::Action;
 use dgg::chat::command::parse_command_to_action;
@@ -20,12 +19,17 @@ use dgg::ui::render;
 use dgg::ui::suggester::Suggestor;
 use dgg::ui::window::{WindowList, WindowType};
 use tokio::sync::Mutex;
+use tokio_tungstenite::tungstenite::Message;
 use tui::{backend::CrosstermBackend, Terminal};
-use tungstenite::Message;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let config = read_user_data_from_file()?;
+async fn main() -> anyhow::Result<()> {
+    // TODO Read user input
+    let mut config = Config::default();
+    config.get_or_build_paths()?;
+    config.askers()?;
+    config.save()?;
+    config.read_user_data_from_file()?;
 
     let emote_list = EmoteList::new();
     let mut suggestor = Suggestor::new(&emote_list);
@@ -46,7 +50,12 @@ async fn main() -> Result<()> {
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, Hide, EnterAlternateScreen,)?;
+    execute!(
+        stdout,
+        Hide,
+        EnterAlternateScreen,
+        SetTitle("DGG - Terminally Online")
+    )?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -119,6 +128,8 @@ async fn main() -> Result<()> {
                                     Err(err) => state.add_error(err.to_string()),
                                 }
                                 state.chat_input.add();
+                            } else if state.chat_input.current_message.starts_with(":q") {
+                                break;
                             } else {
                                 state.dispatch(Action::SendMsg);
                             }
@@ -169,13 +180,4 @@ async fn start_tokio(
     while let Ok(action) = io_recv.recv() {
         network.handle_io(action).await;
     }
-}
-
-fn read_user_data_from_file() -> Result<Config> {
-    let file = File::open("config.json")?;
-    let reader = BufReader::new(file);
-
-    let config: Config = serde_json::from_reader(reader)?;
-
-    Ok(config)
 }
