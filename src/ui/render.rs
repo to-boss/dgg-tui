@@ -10,7 +10,7 @@ use tui::{
     Frame,
 };
 
-use crate::chat::{features::Feature, message::ChatMessage, state::State};
+use crate::chat::{message::ChatMessage, state::State};
 
 use super::{
     emotes::EmoteList,
@@ -95,13 +95,7 @@ fn render_chat<B: Backend>(
 
     // items.len() can be bigger than the selected range,
     // because line wraps return multiple lines
-    let mut items: Vec<ListItem> = get_chat_items(
-        viewport,
-        width,
-        &state.username,
-        &state.messages,
-        &emote_list,
-    );
+    let mut items: Vec<ListItem> = get_chat_items(viewport, width, &state.messages, &emote_list);
 
     // update after linewraps
     if state.messages.len() > height && items.len() > range_len {
@@ -126,15 +120,17 @@ fn render_debug<B: Backend>(
     state: &State,
     windows: &mut WindowList,
 ) {
-    let height = (chunk.height) as usize;
+    let height = (chunk.height - 2) as usize;
+    let width = (chunk.width - 2) as usize;
     let viewport = windows
         .get_mut(WindowType::Debug)
         .compute_viewport(height, state.debugs.len());
+    let range_len = viewport.end - viewport.start;
 
-    let items: Vec<ListItem> = state.debugs[viewport]
+    let mut items: Vec<ListItem> = state.debugs[viewport]
         .iter()
         .map(|msg| {
-            let lines = textwrap::wrap(&msg, (chunk.width - 2) as usize);
+            let lines = textwrap::wrap(&msg, width);
             let line = Spans::from(Span::styled(msg, Style::default().fg(Color::White)));
 
             if lines.len() > 1 {
@@ -159,6 +155,12 @@ fn render_debug<B: Backend>(
         })
         .flatten()
         .collect();
+
+    // update after linewraps
+    if state.messages.len() > height && items.len() > range_len {
+        let diff = items.len() - range_len;
+        items.drain(0..diff);
+    }
 
     let debug_messages = List::new(items).block(
         Block::default()
@@ -251,7 +253,6 @@ fn get_height_and_start(chunk: Rect, list_len: usize) -> (usize, usize) {
 fn get_chat_items<'a>(
     range: Range<usize>,
     width: usize,
-    username: &'a str,
     messages: &Vec<ChatMessage>,
     emote_list: &EmoteList,
 ) -> Vec<ListItem<'a>> {
@@ -403,7 +404,7 @@ mod tests {
             state.username.to_string(),
             "x".repeat(100),
         )];
-        let _ = get_chat_items(0..1, 20, &state.username, &messages, &emote_list);
+        let _ = get_chat_items(0..1, 20, &messages, &emote_list);
         // println!("{:#?}", _);
     }
 }

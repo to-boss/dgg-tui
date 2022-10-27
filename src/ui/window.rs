@@ -29,6 +29,13 @@ impl Window {
             return 0 as usize..end as usize;
         }
 
+        // Make sure user can't scroll too far down and enable auto_scroll
+        // if at the very bottom
+        if self.scroll > (list_len - height) as i16 {
+            self.auto_scroll = true;
+            self.scroll = (list_len - height) as i16;
+        }
+
         self.scroll as usize..end
     }
 
@@ -40,6 +47,7 @@ impl Window {
         }
     }
 
+    /// Flips the window.active state e.g. true => false and vice versa
     pub fn flip(&mut self) {
         self.active = !self.active;
     }
