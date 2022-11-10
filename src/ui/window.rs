@@ -44,6 +44,8 @@ impl Window {
 
         if self.scroll + val >= 0 {
             self.scroll += val;
+        } else {
+            self.scroll = 0;
         }
     }
 

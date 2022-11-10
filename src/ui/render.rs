@@ -332,12 +332,12 @@ fn get_chat_items<'a>(
                 bg_color = Color::Rgb(130, 100, 150);
             }
 
-            if name.eq("STALK") || name.eq("EMBED") {
+            if name.contains("STALK") || name.contains("EMBED") {
                 name_color = Color::Rgb(250, 0, 140);
                 bg_color = Color::Rgb(50, 50, 50);
             }
 
-            if name.eq("ERROR") {
+            if name.contains("ERROR") {
                 name_color = Color::LightRed;
                 bg_color = Color::Rgb(50, 50, 50);
             }
