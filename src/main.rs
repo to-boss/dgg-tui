@@ -27,9 +27,14 @@ async fn main() -> anyhow::Result<()> {
     // TODO Read user input
     let mut config = Config::default();
     config.get_or_build_paths()?;
-    config = config.read_user_data_from_file()?;
-    config.askers()?;
-    config.save_to_config_file()?;
+    let file_found = config.read_user_data_from_file();
+    match file_found {
+        Ok(_) => (),
+        Err(_) => {
+            config.askers()?;
+            config.save_to_config_file()?;
+        }
+    }
 
     let emote_list = EmoteList::new();
     let mut suggestor = Suggestor::new(&emote_list);
@@ -39,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let (io_sender, io_recv) = std::sync::mpsc::channel();
     let io_sender_2 = io_sender.clone();
 
-    let state = Arc::new(Mutex::new(State::new(config.name, io_sender)));
+    let state = Arc::new(Mutex::new(State::new(config.name.to_string(), io_sender)));
     let cloned_state = Arc::clone(&state);
 
     // Network Thread
@@ -56,7 +61,6 @@ async fn main() -> anyhow::Result<()> {
         EnterAlternateScreen,
         SetTitle("DGG - Terminally Online")
     )?;
-
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).unwrap();
 
@@ -71,6 +75,18 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let mut state = cloned_state.lock().await;
+
+        // Can be used to debug without GUI
+        // if state.messages.len() > 0 && last_index != state.messages.len() - 1 {
+        //     last_index = state.messages.len() - 1;
+        //     if state.messages[last_index].name == "ERROR" {
+        //         println!("{}", "-".repeat(20));
+        //         println!("{}", state.messages[last_index]);
+        //         println!("{}", "-".repeat(20));
+        //     }
+        //     println!("{}", state.messages[last_index]);
+        // }
+
         match terminal
             .draw(|f| render::draw(f, &state, &emote_list, &suggestor, &mut windows).unwrap())
         {

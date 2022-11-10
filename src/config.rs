@@ -45,23 +45,11 @@ impl Config {
         }
     }
 
-    pub fn read_user_data_from_file(&mut self) -> anyhow::Result<Config> {
-        let file = File::open(self.path.as_ref().unwrap());
-
-        if file.is_err() {
-            return Ok(Config::default());
-        }
-
-        let reader = BufReader::new(file.unwrap());
-        let mut config: Config = serde_json::from_reader(reader)?;
-        config.path = self.path.clone();
-        Ok(config)
-    }
-
     pub fn askers(&mut self) -> anyhow::Result<()> {
         if self.token.len() == 64 {
             return Ok(());
         }
+        println!("{:?}", self.path);
 
         println!(
             "Creating a config file at {}",
@@ -104,6 +92,20 @@ impl Config {
             }
             Err(_) => (),
         }
+
+        Ok(())
+    }
+
+    pub fn read_user_data_from_file(&mut self) -> anyhow::Result<()> {
+        let file = File::open(self.path.as_ref().unwrap());
+
+        if file.is_err() {
+            bail!("No config file exists.");
+        }
+
+        let reader = BufReader::new(file.unwrap());
+        let config: Config = serde_json::from_reader(reader)?;
+        *self = config;
 
         Ok(())
     }
