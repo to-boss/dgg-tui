@@ -49,8 +49,6 @@ impl Config {
         if self.token.len() == 64 {
             return Ok(());
         }
-        println!("{:?}", self.path);
-
         println!(
             "Creating a config file at {}",
             self.path.as_ref().unwrap().display()
