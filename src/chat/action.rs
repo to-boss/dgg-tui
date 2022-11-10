@@ -1,9 +1,9 @@
-use std::fmt::Display;
-
 use super::{
     message::ChatMessage,
     user::{User, UserList},
 };
+use crate::ws_error::WsError;
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum Action {
@@ -28,7 +28,7 @@ pub enum Action {
     Pong,
     Refresh,
     Binary,
-    Err(String),
+    Err(WsError),
     Unreachable(String),
 }
 
@@ -52,7 +52,7 @@ impl Action {
             "PONG" => Action::Pong,
             "REFRESH" => Action::Refresh,
             "Binary" => Action::Binary,
-            "ERR" => Action::Err(json.to_string()),
+            "ERR" => Action::Err(WsError::from_json(json)),
             _ => Action::Unreachable(json.to_string()),
         }
     }

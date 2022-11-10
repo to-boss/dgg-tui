@@ -1,13 +1,12 @@
-use std::sync::{mpsc::Sender, Arc};
-
+use crate::chat::{action::Action, api::ApiCaller, message::ChatMessage, state::State};
 use futures::{channel::mpsc::Receiver, SinkExt, StreamExt};
+use reqwest::StatusCode;
+use std::sync::{mpsc::Sender, Arc};
 use tokio::sync::Mutex;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{self, handshake::client::Request, Message},
 };
-
-use crate::chat::{action::Action, api::ApiCaller, message::ChatMessage, state::State};
 
 pub struct Network<'a> {
     state: &'a Arc<Mutex<State>>,
@@ -36,6 +35,7 @@ impl<'a> Network<'a> {
         io_sender: Sender<Action>,
         chat_recv: Receiver<Message>,
     ) {
+        let socket_url = "wss://destiny.gg/ws";
         let request = Request::builder()
             .header("Host", "chat.destiny.gg")
             .header("Origin", "https://www.destiny.gg")
@@ -47,13 +47,19 @@ impl<'a> Network<'a> {
                 tungstenite::handshake::client::generate_key(),
             )
             .header("cookie", format!("authtoken={}", self.token))
-            .uri("wss://destiny.gg/ws")
+            .uri(socket_url)
             .body(())
             .unwrap();
 
-        let (ws_stream, _) = connect_async(request)
+        let (ws_stream, res) = connect_async(request)
             .await
             .expect("Failed to connect to WebSocket.");
+
+        // TODO: proper error handling
+        match res.status() {
+            StatusCode::OK => (),
+            _ => (),
+        }
 
         let (write, mut read) = ws_stream.split();
 
@@ -168,7 +174,7 @@ impl<'a> Network<'a> {
             Action::Pong => (),
             Action::Refresh => (),
             Action::Binary => (),
-            Action::Err(err_msg) => self.state.lock().await.add_error(err_msg.to_string()),
+            Action::Err(ws_err) => self.state.lock().await.add_error(ws_err.to_string()),
             Action::Unreachable(un_msg) => self
                 .state
                 .lock()
